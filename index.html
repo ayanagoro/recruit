@@ -1,10 +1,4 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Applicant Matching & Slot Management</title>
-<style><!DOCTYPE html>
 <html lang="ja" translate="no" class="notranslate">
 <head>
 <meta charset="UTF-8">
@@ -13,6 +7,9 @@
 <script>
 /* 画面サイズ判定（描画前に実行）：自動＝幅900px以上でPC表示、未満でスマホ表示。手動切替の設定があればそれを優先 */
 (function(){var v;try{var p=JSON.parse(localStorage.getItem('viewPref')||'"auto"');v=(p==='pc'||p==='mobile')?p:(innerWidth>=900?'pc':'mobile');}catch(e){v=innerWidth>=900?'pc':'mobile';}document.documentElement.className+=' v-'+v;})();
+</script>
+<script>
+window.addEventListener('error', function(e){ var el=document.getElementById('boot-err'); if(el) el.textContent='Error: '+(e.message||'')+' (line '+(e.lineno||'?')+')'; });
 </script>
 <title>Applicant Matching & Slot Management</title>
 <style>
@@ -64,6 +61,7 @@
   .option-card { display:flex; align-items:center; gap:6px; font-size:.88rem; cursor:pointer; border:1px solid #cbd5e1; padding:8px 10px; border-radius:6px; background:#fff; font-weight:normal; margin:0; }
   .option-card input { width:18px; height:18px; margin:0; flex:none; }
   .option-card:has(input:checked) { background:#e0e7ff; border-color:#1e3a8a; font-weight:bold; }
+  .option-card.on { background:#e0e7ff; border-color:#1e3a8a; font-weight:bold; }
   .opts input[type=text] { flex:1 1 140px; width:auto; }
   .sub-opt { margin:6px 0 0 18px; }
   .footer-note { background:#fff5f5; border:1px solid #fab1a0; color:#c0392b; padding:8px; margin-top:14px; border-radius:4px; font-size:.82rem; text-align:center; line-height:1.6; }
@@ -176,12 +174,18 @@
     .topbar, .tabs, #match-area, .btn-row, #msg-form, .no-print, .tab:not(#tab-input) { display:none !important; }
     #tab-input.active { display:block !important; }
     .box { box-shadow:none; padding:0; }
-    .option-card:has(input:checked) { background:#fff; border:2px solid #000; }
+    .option-card:has(input:checked), .option-card.on { background:#fff; border:2px solid #000; }
     .section-title { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
 </style>
 </head>
 <body>
+<div id="boot-msg" style="padding:10px;font-size:14px;line-height:1.6;background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;margin:6px 0;color:#92400e">
+  読み込み中です… / Loading… / Carregando…<br>
+  <span style="font-size:12px">このまま変わらない場合は、<b>Chrome または Safari</b> で開き直してください（LINE・メール・ドライブのプレビューでは動きません）。<br>If nothing changes, open this file in Chrome or Safari.</span>
+  <div id="boot-err" style="margin-top:6px;font-size:12px;color:#b91c1c"></div>
+</div>
+<div id="warn-msg" style="display:none;padding:10px;font-size:13px;line-height:1.6;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin:6px 0;color:#991b1b"></div>
 <div class="container">
   <div class="topbar">
     <h1 data-i18n="app.title"></h1>
@@ -350,6 +354,7 @@
           <button type="button" class="btn btn-main" id="btn-match" data-i18n="btn.match"></button>
           <button type="button" class="btn btn-green" id="btn-register" data-i18n="btn.register"></button>
           <button type="button" class="btn btn-gray" id="btn-print" data-i18n="btn.print"></button>
+          <button type="button" class="btn btn-gray" id="btn-pdf" data-i18n="btn.pdf"></button>
           <button type="button" class="btn btn-sub" id="btn-clear" data-i18n="btn.clear"></button>
         </div>
         <div id="msg-form" class="msg"></div>
@@ -388,7 +393,11 @@
     <div class="box">
       <h2 data-i18n="sheet.title"></h2>
       <p class="small" style="margin-top:0" data-i18n="sheet.intro"></p>
-      <a class="btn btn-sub" id="sheet-link" target="_blank" rel="noopener" data-i18n="sheet.link"></a>
+      <div class="field" style="margin:0 0 10px">
+        <label class="t" data-i18n="sheet.page"></label>
+        <input type="text" id="f-sheet-page" placeholder="https://docs.google.com/spreadsheets/d/.../edit">
+      </div>
+      <a class="btn btn-sub" id="sheet-link" target="_blank" rel="noopener" data-i18n="sheet.link" style="display:none"></a>
       <div class="field" style="margin:10px 0">
         <label class="t" data-i18n="sheet.mode"></label>
         <select id="f-sheet-mode">
@@ -400,11 +409,25 @@
         <label class="t" data-i18n="sheet.url"></label>
         <input type="text" id="f-sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
       </div>
+      <div class="field" style="margin-bottom:10px">
+        <label class="t" data-i18n="sheet.key"></label>
+        <input type="text" id="f-sheet-key" autocomplete="off">
+      </div>
       <div class="btn-row">
         <button class="btn btn-sub" id="btn-save-url" data-i18n="sheet.saveurl"></button>
         <button class="btn btn-sub" id="btn-test-url" data-i18n="sheet.test"></button>
       </div>
       <div id="msg-url" class="msg"></div>
+      <details style="margin-top:12px" open>
+        <summary data-i18n="hist.steps"></summary>
+        <ol class="small" style="padding-left:18px">
+          <li data-i18n="hist.s1"></li>
+          <li data-i18n="hist.s2"></li>
+          <li data-i18n="hist.s3"></li>
+        </ol>
+        <pre class="code" id="hist-code"></pre>
+        <button class="btn btn-sub btn-sm" id="btn-copy-hist" data-i18n="sheet.copycode"></button>
+      </details>
       <details style="margin-top:12px">
         <summary data-i18n="sheet.steps"></summary>
         <ol class="small" style="padding-left:18px">
@@ -504,6 +527,7 @@
    フォーム項目は添付フォームと同じく「ポルトガル語 ＋ 日本語」の併記（ポルトガル語表示時）
    ※ データ内部の値（昼勤・あり 等）は日本語のまま保持し、表示時にだけ翻訳します
    ========================================================= */
+const nz = (v, d) => (v === undefined || v === null) ? (d === undefined ? '' : d) : v;   // 古い携帯でも動くように ?? の代わりに使う
 const LANGS = ['ja','en','pt'];
 const B = (pt, jp, en) => [jp, en, pt + ' <span class="jp-label">' + jp + '</span>'];
 const I18N = {
@@ -561,8 +585,13 @@ const I18N = {
  'note.card':['<strong>連絡：</strong>在留カードの表と裏の写真を送ってもらってください。','<strong>Reminder:</strong> please ask the applicant to send photos of the residence card (front and back).','<strong>Lembrete:</strong> enviar foto do zaryu card frente e verso por favor.<br><span class="jp-label">在留カードの表裏の写真を送ってください。</span>'],
  'btn.match':['🔍 この人に合う工場を探す','🔍 Find factories for this person','🔍 Buscar fábricas para esta pessoa'],
  'btn.register':['📤 登録（スプレッドシートへ送信）','📤 Submit (send to spreadsheet)','📤 Enviar (para a planilha)'],
- 'btn.print':['🖨 印刷','🖨 Print','🖨 Imprimir'],
+ 'btn.print':['🖨 印刷（先に保存）','🖨 Print','🖨 Imprimir'],
  'btn.clear':['入力を消去（次の方へ）','Clear form (next person)','Limpar (próximo candidato)'],
+ 'btn.pdf':['📄 PDFで保存','📄 Save as PDF','📄 Salvar em PDF'],
+ 'print.blank':['氏名が空です。保存せず、空白のまま印刷しますか？','The name is empty. Print the blank form without saving?','O nome está vazio. Imprimir o formulário em branco sem salvar?'],
+ 'print.changed':['スプレッドシートには前回の内容が送信済みです。変更後の内容も送りますか？（行が1行増えます）','The spreadsheet already has the previous version. Send the updated data too? (It adds one more row.)','A planilha já tem a versão anterior. Enviar também os dados atualizados? (Adiciona mais uma linha.)'],
+ 'print.timeout':['{name} さんを端末に保存しました。スプレッドシートへの送信に時間がかかっています（通信が戻れば自動で完了します）。','{name} was saved on this device. Sending to the spreadsheet is taking a while (it completes when the connection is back).','{name} foi salvo(a) neste aparelho. O envio à planilha está demorando (conclui quando a conexão voltar).'],
+ 'print.pdfhint':['印刷画面で、送信先（プリンタ）を「PDFに保存」にしてください。','In the print dialog, choose "Save as PDF" as the destination.','Na janela de impressão, escolha "Salvar como PDF" como destino.'],
  'city.ok':['→ 「{c}」として認識しました','Recognized as: {c}','Reconhecido como: {c}'],
  'city.unknown':['一覧にない市町村です（距離は「要確認」になります）','Not in the list (distance will be "to be confirmed")','Fora da lista (a distância ficará "a confirmar")'],
 
@@ -763,10 +792,10 @@ const I18N = {
  'search.exclplaced':['すでに工場が決まっている人は除く','Exclude people already placed','Excluir quem já foi alocado'],
  'search.run':['🔎 条件に合う人をピックアップ','🔎 Pick matching candidates','🔎 Selecionar candidatos'],
  'search.reset':['条件をクリア','Clear conditions','Limpar condições'],
- 'search.source':['データ元：この端末 {a}名 ／ スプレッドシート {b}名','Data: this device {a} / spreadsheet {b}','Dados: este aparelho {a} / planilha {b}'],
+ 'search.source':['データ元：この端末 {a}名 ／ スプレッドシートの履歴 {b}名','Data: this device {a} / spreadsheet history {b}','Dados: este aparelho {a} / histórico da planilha {b}'],
  'search.load':['🔄 スプレッドシートから最新を読み込む','🔄 Load latest from the spreadsheet','🔄 Carregar da planilha'],
- 'search.loaded':['スプレッドシートから {n}名を読み込みました。','Loaded {n} people from the spreadsheet.','{n} pessoas carregadas da planilha.'],
- 'search.loadfail':['読み込みに失敗しました。②の新スクリプトを最新コードで再デプロイしているか、URLを確認してください。','Loading failed. Check that the new script (②) is deployed with the latest code and the URL is correct.','Falha ao carregar. Verifique se o novo script (②) foi implantado com o código mais recente e se a URL está correta.'],
+ 'search.loaded':['スプレッドシート（{tab}）から {n}名を読み込みました。','Loaded {n} people from the spreadsheet ({tab}).','{n} pessoas carregadas da planilha ({tab}).'],
+ 'search.loadfail':['読み込めませんでした。③の「過去の履歴を読み込むための設定」でコードを追加して再デプロイしたか、URLを確認してください。','Could not load. Check that you added the code from the setup in tab ③ and redeployed, and that the URL is correct.','Não foi possível carregar. Verifique se adicionou o código da configuração da aba ③, reimplantou e se a URL está correta.'],
  'search.needmode':['スプレッドシートからの読み込みは「②新スクリプト」方式のときに使えます（③で設定）。今はこの端末に登録した人だけを検索します。','Reading from the spreadsheet needs method ② (new script, set up in tab ③). For now only people registered on this device are searched.','A leitura da planilha exige o método ② (novo script, aba ③). Por ora só busca pessoas registradas neste aparelho.'],
  'search.found':['該当 {m}名（募集 {n}名）','{m} match (needed: {n})','{m} compatíveis (necessárias: {n})'],
  'search.found0':['該当 {m}名','{m} match','{m} compatíveis'],
@@ -820,9 +849,19 @@ const I18N = {
  'sheet.s3':['右上「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」<br>実行ユーザー：<b>自分</b> ／ アクセスできるユーザー：<b>全員</b> → デプロイ','"Deploy" → "New deployment" → type "Web app"<br>Execute as: <b>Me</b> / Who has access: <b>Anyone</b> → Deploy','"Implantar" → "Nova implantação" → tipo "App da Web"<br>Executar como: <b>Eu</b> / Quem tem acesso: <b>Qualquer pessoa</b> → Implantar'],
  'sheet.s4':['表示された「ウェブアプリのURL」を上の欄に貼り付けて、送信方式を②にして「保存」','Paste the "Web app URL" into the field above, set the method to ②, and press Save','Cole o "URL do app da Web" no campo acima, escolha o método ② e toque em Salvar'],
  'sheet.s5':['コードを更新したときは「デプロイ」→「デプロイを管理」→ 鉛筆 →「新バージョン」で再デプロイ（URLは変わりません）。初回は権限の承認が必要です。','After changing the code: "Deploy" → "Manage deployments" → pencil → "New version" (the URL stays the same). The first time you must authorize access.','Ao alterar o código: "Implantar" → "Gerenciar implantações" → lápis → "Nova versão" (a URL não muda). Na primeira vez é preciso autorizar o acesso.'],
- 'sheet.link':['📄 記録先のスプレッドシートを開く','📄 Open the linked spreadsheet','📄 Abrir a planilha vinculada'],
+ 'sheet.page':['スプレッドシートのリンク（開くボタン用・任意）','Spreadsheet link (for the open button, optional)','Link da planilha (para o botão de abrir, opcional)'],
+ 'sheet.link':['📄 スプレッドシートを開く','📄 Open the linked spreadsheet','📄 Abrir a planilha vinculada'],
+ 'sheet.key':['アクセスキー（任意・個人情報の保護）','Access key (optional, protects personal data)','Chave de acesso (opcional, protege dados pessoais)'],
+ 'hist.steps':['📖 過去の履歴を読み込むための設定（人材検索で使います）','📖 Setup to read past history (used by Search)','📖 Configuração para ler o histórico (usado na Busca)'],
+ 'hist.s1':['送信先URLを作ったスクリプトを開く：スプレッドシート →「拡張機能」→「Apps Script」','Open the script behind the URL: spreadsheet → "Extensions" → "Apps Script"','Abra o script do URL: planilha → "Extensões" → "Apps Script"'],
+ 'hist.s2':['下のコードを、今あるコードの下に追加して保存（今あるコードは消さないでください）','Add the code below underneath your existing code and save (do not delete the existing code)','Adicione o código abaixo depois do código existente e salve (não apague o código existente)'],
+ 'hist.s3':['「デプロイ」→「デプロイを管理」→ 鉛筆 →「新バージョン」→「デプロイ」（URLは変わりません）。アクセスは「全員」のままにします。','"Deploy" → "Manage deployments" → pencil → "New version" → "Deploy" (the URL stays the same). Keep access set to "Anyone".','"Implantar" → "Gerenciar implantações" → lápis → "Nova versão" → "Implantar" (a URL não muda). Mantenha o acesso como "Qualquer pessoa".'],
+ 'search.unauth':['アクセスキーが違います。③のアクセスキーと、スクリプトのHIST_KEYを同じにしてください。','Wrong access key. Make the key in tab ③ match HIST_KEY in the script.','Chave incorreta. Faça a chave da aba ③ coincidir com HIST_KEY no script.'],
+ 'search.autofail':['スプレッドシートの履歴を読み込めませんでした（③の「過去の履歴を読み込むための設定」が必要です）。今はこの端末に登録した人だけを検索します。','Could not load the spreadsheet history (the setup in tab ③ is needed). For now only people on this device are searched.','Não foi possível carregar o histórico da planilha (é preciso a configuração na aba ③). Por ora só busca pessoas deste aparelho.'],
+ 'inapp.warn':['アプリ内ブラウザで開いています。保存や送信が正しく動かないことがあります。メニューから「Safari／Chromeで開く」を選んでください。','You are in an in-app browser. Saving/sending may not work — use the menu to "Open in Safari/Chrome".','Você está em um navegador interno de app. Salvar/enviar pode falhar — use o menu e escolha "Abrir no Safari/Chrome".'],
+ 'storage.warn':['この端末では保存機能が使えません（プライベートブラウズなど）。通常のブラウザで開いてください。','Saving is unavailable on this device (e.g. private browsing). Please open in a normal browser window.','O salvamento não está disponível neste aparelho (ex.: navegação privada). Abra em uma janela normal do navegador.'],
  'sheet.copycode':['コードをコピー','Copy code','Copiar código'],
- 'sheet.url':['ウェブアプリURL','Web app URL','URL do app da Web'],
+ 'sheet.url':['送信先スクリプトのURL（ウェブアプリURL）','Web app URL','URL do app da Web'],
  'sheet.saveurl':['URLと方式を保存','Save URL and method','Salvar URL e método'],
  'sheet.test':['テスト送信（ダミー1行）','Send test (1 dummy row)','Enviar teste (1 linha fictícia)'],
  'sheet.saved':['保存しました。','Saved.','Salvo.'],
@@ -894,10 +933,7 @@ const DEFAULT_FACTORIES = [
   {name:'リバース',             locations:['小牧市'],           shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:1}
 ].map((f,i)=>({id:'f'+(i+1), wants:[], boost:0, status:'open', maleCap:0, maleCur:0, femCap:0, femCur:0, ...f}));
 
-// 添付フォームの既存スクリプトURL（②の設定欄で変更できます）
-// 記録先スプレッドシート（新スクリプト②のコードにもこのIDが入ります）
-const SHEET_ID = '1Hgv8maKYohZv62n4XF-rNVtiGfNa86y3dkGVD-SOZP4';
-const SHEET_PAGE = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/edit';
+// 送信先スクリプトのURL（③の設定欄でも変更できます）
 const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycby9ffRiG3XWTKCsoypdHqg0TjLCyT_7RyF_TtlTzZzINMGh7R8Qmc1lAMxPNoVSYSOw/exec';
 
 /* =========================================================
@@ -937,14 +973,20 @@ applicants.forEach(a => {   // 旧バージョンのデータを新フォーム�
   if (!Array.isArray(a.cert)) a.cert = (a.quals || []).map(k => QCERT[k]).filter(Boolean);
   if (!Array.isArray(a.apps)) a.apps = [];
 });
+// 送信先を、指定されたスクリプトURL（①方式）に一度だけ切り替える（端末に残っていた古い設定を上書き）
+if (!LS.get('migr_sheet_v3', false)){
+  LS.set('sheetUrl', DEFAULT_SHEET_URL); LS.set('sheetMode', 'form'); LS.set('sheetPage', ''); LS.set('migr_sheet_v3', true);
+}
 let sheetUrl = LS.get('sheetUrl', '') || DEFAULT_SHEET_URL;
-let sheetMode = LS.get('sheetMode', LS.get('sheetUrl', '') ? 'json' : 'form');
+let sheetMode = LS.get('sheetMode', 'form');
+let sheetPage = LS.get('sheetPage', '');
+let sheetKey = LS.get('sheetKey', '');
 let curId = null;
 
 const saveFactories = () => LS.set('factories_'+FACTORY_VERSION, factories);
 const saveApplicants = () => LS.set('applicants', applicants);
 const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(nz(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* =========================================================
    表示サイズ（PC／スマホ）
@@ -985,10 +1027,14 @@ document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', (
 function initSelects(){
   const wv = $('f-wish').value;
   $('f-wish').innerHTML = `<option value="どこでも">${esc(t('v.どこでも'))}</option>`
-    + [...new Set(factories.flatMap(f => f.locations))].map(c => `<option value="${esc(c)}">${esc(cityLabel(c))}</option>`).join('');
+    + [...new Set([].concat.apply([], factories.map(f => f.locations)))].map(c => `<option value="${esc(c)}">${esc(cityLabel(c))}</option>`).join('');
   $('f-wish').value = wv || 'どこでも';
   if ($('f-wish').value !== (wv || 'どこでも')) $('f-wish').value = 'どこでも';
 }
+function syncCards(){
+  document.querySelectorAll('.option-card').forEach(l => { const i = l.querySelector('input'); l.classList.toggle('on', !!(i && i.checked)); });
+}
+document.addEventListener('change', syncCards);
 const radio = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value || '';
 const setRadio = (name, val) => document.querySelectorAll(`input[name=${name}]`).forEach(r => { r.checked = (r.value === val); });
 const CERT_KEY = { 'Empilhadeira':'forklift', 'Caminhão':'truck', 'Solda':'weld' };
@@ -1256,6 +1302,8 @@ function topNames(a){ return matchAll(a).good.slice(0,3).map(r => r.f.name).join
 function upsertApplicant(a, assignedName, extra){
   const now = new Date().toLocaleString('ja-JP');
   let rec = curApplicant();
+  // 名前が変わったら別の人として保存する（前の人の記録を上書きしない）
+  if (rec && rec.name && a.name && rec.name !== a.name){ rec = null; curId = null; }
   if (!rec){
     curId = 'A' + Date.now();
     rec = { id:curId, createdAt:now, assigned:'' };
@@ -1271,14 +1319,15 @@ function upsertApplicant(a, assignedName, extra){
 /* ---------- スプレッドシート送信 ---------- */
 // 方式①：添付フォームと同じ項目名・同じ形式（x-www-form-urlencoded）
 const formPayload = a => ({
-  nome: a.name || '', idade: a.age ?? '', genero: ({'男性':'M','女性':'F'})[a.gender] || '',
+  nome: a.name || '', idade: nz(a.age), genero: ({'男性':'M','女性':'F'})[a.gender] || '',
   telefone: a.phone || '', apps: (a.apps || []).join(', '), cidade: a.cityText || '',
-  nihongo: a.nihongo ?? '',
+  nihongo: nz(a.nihongo),
   cert: (a.cert || []).map(c => (c === 'Empilhadeira' && a.reach) ? 'Empilhadeira (reach)' : c).join(', '),
   cert_outros: a.certOther || '', job: a.job || '', car: a.car || '', apto: a.apto || '', filhos: a.filhos || '',
   data_entrevista: a.interviewDate || '', hora_entrevista: a.interviewTime || '',
   salario: a.wage || '', vaga: a.vaga || '', entrevistador: a.interviewer || '', obs: a.obs || ''
 });
+const payloadKey = a => JSON.stringify(formPayload(a));
 // 方式②：JSON（行の更新あり）。列名・値は日本語
 const CERT_JA = { 'Empilhadeira':'フォークリフト', 'Caminhão':'中型トラック', 'Solda':'溶接', 'Outros':'その他' };
 const COLS = [
@@ -1299,7 +1348,7 @@ async function sendToSheet(rec, force){
   try {
     if (sheetMode === 'form'){
       await fetch(sheetUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams(formPayload(rec)).toString() });
-      rec.sentForm = Date.now(); saveApplicants();
+      rec.sentForm = Date.now(); rec.sentKey = payloadKey(rec); saveApplicants();
     } else {
       await fetch(sheetUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(exportRec(rec)) });
     }
@@ -1328,7 +1377,40 @@ $('btn-match').addEventListener('click', () => {
   renderMatch(a);
   $('match-area').scrollIntoView({behavior:'smooth', block:'start'});
 });
-$('btn-print').addEventListener('click', () => window.print());
+/* ---------- 印刷・PDF：押すと必ず先に保存（端末＋スプレッドシート）してから印刷画面を開く ---------- */
+let printBusy = false;
+const printTitleFor = a => ['面接フォーム', a.name, new Date().toISOString().slice(0, 10)].filter(Boolean).join('_');
+function openPrint(){
+  printBusy = true;
+  window.print();
+  setTimeout(() => { printBusy = false; }, 1500);
+}
+async function saveThenPrint(isPdf){
+  const a = readForm();
+  if (!a.name){      // 氏名がないと保存できない。空白のまま印刷する場合だけ確認
+    if (confirm(t('print.blank'))) openPrint(); else showMsg('msg-form','err', t('m.miss',{x: validate(a).join(', ')}));
+    return;
+  }
+  printBusy = true;
+  const rec = upsertApplicant(a);                                   // 端末に必ず保存
+  let force = false;
+  if (sheetMode === 'form' && rec.sentForm && rec.sentKey !== payloadKey(rec)) force = confirm(t('print.changed'));
+  const r = await Promise.race([ sendToSheet(rec, force), new Promise(res => setTimeout(() => res('timeout'), 5000)) ]);
+  renderApplicants();
+  let msg = r === 'timeout' ? t('print.timeout', {name: rec.name}) : sendResultText(r, rec);
+  if (isPdf) msg += ' ' + t('print.pdfhint');
+  showMsg('msg-form', r === 'error' ? 'err' : 'ok', msg);
+  openPrint();
+}
+$('btn-print').addEventListener('click', () => saveThenPrint(false));
+$('btn-pdf').addEventListener('click', () => saveThenPrint(true));
+// ブラウザのメニューや Ctrl+P から印刷／PDF保存したときも、必ず端末に保存する
+window.addEventListener('beforeprint', () => {
+  const a = readForm();
+  if (!printBusy && a.name){ const rec = upsertApplicant(a); renderApplicants(); sendToSheet(rec); }
+  document.title = printTitleFor(a);
+});
+window.addEventListener('afterprint', () => { printBusy = false; document.title = t('app.title').replace(/^📋\s*/, ''); });
 
 async function decide(fid){
   const a = readForm(), miss = validate(a);
@@ -1338,7 +1420,7 @@ async function decide(fid){
   const blk = slotBlock(f, a.gender);
   if (blk){ showMsg('msg-form','err', t(blk)); return; }
   const prev = curApplicant();
-  if (prev) releaseSlot(prev);
+  if (prev && prev.name === a.name) releaseSlot(prev);
   f.current++;
   const usedMale = a.gender === '男性' && f.maleCap > 0 && maleRem(f) > 0;
   const usedFem  = a.gender === '女性' && f.femCap > 0 && femRem(f) > 0;
@@ -1355,7 +1437,7 @@ async function decide(fid){
 
 function clearForm(){
   $('interview-form').reset();
-  setRadio('shift', 'どちらでも');
+  setRadio('shift', 'どちらでも'); syncCards();
   $('f-wish').value = 'どこでも';
   updateCityHint();
   curId = null; $('match-area').innerHTML = ''; delete $('match-area').dataset.shown; clearMsg('msg-form');
@@ -1396,8 +1478,8 @@ function renderFactoryAdmin(){
           <div class="field"><label class="t">${t('fac.gender')}</label><select data-k="gender">${opt(['不問','男性推奨','女性推奨'], f.gender)}</select></div>
         </div>
         <div class="row2">
-          <div class="field"><label class="t">${t('fac.agemin')}</label><input type="number" data-k="ageMin" value="${f.ageMin ?? ''}" placeholder="${esc(t('fac.none'))}"></div>
-          <div class="field"><label class="t">${t('fac.agemax')}</label><input type="number" data-k="ageMax" value="${f.ageMax ?? ''}" placeholder="${esc(t('fac.none'))}"></div>
+          <div class="field"><label class="t">${t('fac.agemin')}</label><input type="number" data-k="ageMin" value="${nz(f.ageMin)}" placeholder="${esc(t('fac.none'))}"></div>
+          <div class="field"><label class="t">${t('fac.agemax')}</label><input type="number" data-k="ageMax" value="${nz(f.ageMax)}" placeholder="${esc(t('fac.none'))}"></div>
         </div>
         <div class="field"><label class="t">${t('fac.wants')}</label>
           <div class="check-line">${['car','forklift','reach','truck','weld'].map(k => `<label><input type="checkbox" data-w="${k}" ${(f.wants||[]).includes(k)?'checked':''}>${t('q.'+k)}</label>`).join('')}</div></div>
@@ -1517,7 +1599,7 @@ function loadToForm(id){
   $('f-gender').value = ({'男性':'M','女性':'F'})[a.gender] || '';
   document.querySelectorAll('input[name=apps]').forEach(x => x.checked = (a.apps || []).includes(x.value));
   $('f-city').value = a.cityText ? (CITY[a.cityText] ? cityLabel(a.cityText) : a.cityText) : ''; updateCityHint();
-  $('f-nihongo').value = a.nihongo ?? '';
+  $('f-nihongo').value = nz(a.nihongo);
   document.querySelectorAll('input[name=cert]').forEach(x => x.checked = (a.cert || []).includes(x.value));
   $('f-certother').value = a.certOther || ''; $('f-reach').checked = !!a.reach;
   setRadio('job', a.job || ''); setRadio('car', a.car || ''); setRadio('apto', a.apto || '');
@@ -1525,11 +1607,12 @@ function loadToForm(id){
   setRadio('shift', a.shift || 'どちらでも'); $('f-wish').value = a.wishLocation || 'どこでも';
   $('f-idate').value = a.interviewDate || ''; $('f-itime').value = a.interviewTime || ''; $('f-wage').value = a.wage || '';
   $('f-vaga').value = a.vaga || ''; $('f-interviewer').value = a.interviewer || ''; $('f-obs').value = a.obs || '';
+  syncCards();
   document.querySelector('[data-tab=tab-input]').click();
   renderMatch(readForm()); window.scrollTo({top:0});
 }
 
-const cell = v => String(v ?? '');
+const cell = v => String(nz(v));
 function toCSV(){
   const q = v => '"' + cell(v).replace(/"/g, '""') + '"';
   return [COLS.map(c => q(c[1])).join(',')].concat(applicants.slice().reverse().map(a => { const e = exportRec(a); return COLS.map(c => q(e[c[0]])).join(','); })).join('\r\n');
@@ -1561,16 +1644,19 @@ $('btn-copy').addEventListener('click', () => {
 /* =========================================================
    スプレッドシート連携設定
    ========================================================= */
-const GAS_CODE = [
-"// Linked spreadsheet (method 2): saves/reads the tab below. One row per applicant ID.",
-"const SHEET_ID = '" + SHEET_ID + "';",
+function buildGas(){
+  const m = /\/d\/([A-Za-z0-9_-]+)/.exec(sheetPage || ''), id = m ? m[1] : '';
+  return [
+"// New script (method 2): saves one row per applicant ID into the tab below. (Add the history reader code too, to read it back in Search.)",
+"// SHEET_ID: leave empty if you created this script from the spreadsheet (Extensions > Apps Script)",
+"const SHEET_ID = '" + id + "';",
 "const TAB = '応募者';",
 "const KEYS = " + JSON.stringify(COLS.map(c => c[0])) + ";",
 "const HEAD = " + JSON.stringify(COLS.map(c => c[1])) + ";",
 "const TEXT_KEYS = ['phone', 'interviewDate', 'interviewTime', 'filhos'];",
 "",
 "function sheet_() {",
-"  const ss = SpreadsheetApp.openById(SHEET_ID);",
+"  const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();",
 "  return ss.getSheetByName(TAB) || ss.insertSheet(TAB);",
 "}",
 "",
@@ -1587,30 +1673,65 @@ const GAS_CODE = [
 "  if (i > 0) sh.getRange(i + 1, 1, 1, row.length).setValues([row]);",
 "  else sh.appendRow(row);",
 "  return ContentService.createTextOutput('ok');",
+"}"
+  ].join('\n');
+}
+function buildHist(){
+  const m = /\/d\/([A-Za-z0-9_-]+)/.exec(sheetPage || ''), id = m ? m[1] : '';
+  const key = String(sheetKey || '').replace(/['"\\\r\n]/g, '');
+  return [
+"// History reader: lets the app read past applicants from this spreadsheet.",
+"// Add it to the SAME Apps Script project as the web-app URL (keep your existing code).",
+"// HIST_SHEET_ID: leave empty if the script was created from the spreadsheet (Extensions > Apps Script)",
+"const HIST_SHEET_ID = '" + id + "';",
+"// HIST_KEY: optional password. If you set one, enter the same one in the app (tab 3).",
+"const HIST_KEY = '" + key + "';",
+"const HIST_HINTS = ['nome', '氏名', '名前', 'idade', '年齢', 'telefone', '電話', 'cidade', 'お住まい', '在住地', 'genero', '性別'];",
+"",
+"function histNorm_(s) { return String(s || '').toLowerCase().replace(/[\\s_\\-]/g, ''); }",
+"function histOut_(o) {",
+"  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);",
 "}",
 "",
-"// Used by the app's \"Search\" tab to read everyone registered",
 "function doGet(e) {",
-"  const sh = sheet_();",
-"  const n = sh.getLastRow() - 1;",
-"  const vals = n > 0 ? sh.getRange(2, 1, n, KEYS.length).getValues() : [];",
-"  const rows = vals.map(r => {",
-"    const o = {};",
-"    KEYS.forEach((k, i) => { o[k] = (r[i] instanceof Date) ? r[i].toISOString() : r[i]; });",
-"    return o;",
-"  });",
-"  return ContentService.createTextOutput(JSON.stringify({ rows: rows }))",
-"    .setMimeType(ContentService.MimeType.JSON);",
+"  const p = (e && e.parameter) || {};",
+"  if (HIST_KEY && p.key !== HIST_KEY) return histOut_({ error: 'unauthorized' });",
+"  const ss = HIST_SHEET_ID ? SpreadsheetApp.openById(HIST_SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();",
+"  const tz = ss.getSpreadsheetTimeZone();",
+"  const sheets = ss.getSheets();",
+"  let sh = p.tab ? ss.getSheetByName(p.tab) : null;",
+"  if (!sh) {   // pick the tab whose header row looks most like the applicant form",
+"    let best = -1;",
+"    sheets.forEach(s => {",
+"      if (s.getLastRow() < 1 || s.getLastColumn() < 1) return;",
+"      const head = s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0].map(histNorm_);",
+"      const score = HIST_HINTS.filter(h => head.some(c => c.indexOf(histNorm_(h)) >= 0)).length;",
+"      if (score > best) { best = score; sh = s; }",
+"    });",
+"  }",
+"  if (!sh) sh = sheets[0];",
+"  const R = sh.getLastRow(), C = sh.getLastColumn();",
+"  const vals = (R > 0 && C > 0) ? sh.getRange(1, 1, R, C).getValues() : [];",
+"  const conv = v => (v instanceof Date) ? Utilities.formatDate(v, tz, v.getFullYear() < 1950 ? 'HH:mm' : 'yyyy/MM/dd HH:mm') : v;",
+"  const rows = vals.map(r => r.map(conv));",
+"  return histOut_({ tab: sh.getName(), headers: rows[0] || [], rows: rows.slice(1), tabs: sheets.map(s => s.getName()) });",
 "}"
-].join('\n');
-$('gas-code').textContent = GAS_CODE;
-$('btn-copy-gas').addEventListener('click', () => copyText(GAS_CODE, 'msg-url', 'copy.code'));
+  ].join('\n');
+}
+function updateSheetLink(){
+  const a = $('sheet-link'), ok = /^https?:\/\//.test(sheetPage);
+  a.style.display = ok ? '' : 'none'; if (ok) a.href = sheetPage;
+  $('gas-code').textContent = buildGas(); $('hist-code').textContent = buildHist();
+}
+$('btn-copy-gas').addEventListener('click', () => copyText(buildGas(), 'msg-url', 'copy.code'));
+$('btn-copy-hist').addEventListener('click', () => copyText(buildHist(), 'msg-url', 'copy.code'));
 $('f-sheet-url').value = sheetUrl;
-$('sheet-link').href = SHEET_PAGE;
+$('f-sheet-page').value = sheetPage; $('f-sheet-key').value = sheetKey; updateSheetLink();
 $('f-sheet-mode').value = sheetMode;
 $('btn-save-url').addEventListener('click', () => {
-  sheetUrl = $('f-sheet-url').value.trim(); sheetMode = $('f-sheet-mode').value;
-  LS.set('sheetUrl', sheetUrl); LS.set('sheetMode', sheetMode);
+  sheetUrl = $('f-sheet-url').value.trim(); sheetMode = $('f-sheet-mode').value; sheetPage = $('f-sheet-page').value.trim(); sheetKey = $('f-sheet-key').value.trim();
+  LS.set('sheetUrl', sheetUrl); LS.set('sheetMode', sheetMode); LS.set('sheetPage', sheetPage); LS.set('sheetKey', sheetKey); updateSheetLink();
+  remoteLoaded = false;
   showMsg('msg-url', 'ok', t(sheetUrl ? 'sheet.saved' : 'sheet.cleared'));
 });
 $('btn-test-url').addEventListener('click', async () => {
@@ -1629,8 +1750,7 @@ $('btn-test-url').addEventListener('click', async () => {
 /* =========================================================
    ④ 人材検索（工場の募集依頼 → 登録済みの人をピックアップ）
    ========================================================= */
-let remoteRows = [], remoteLoaded = false;
-const REV_CERT = { 'フォークリフト':'Empilhadeira', '中型トラック':'Caminhão', '溶接':'Solda', 'その他':'Outros' };
+let remoteRows = [], remoteLoaded = false, autoWarned = false;
 function deriveFields(a){
   a.cert = Array.isArray(a.cert) ? a.cert : [];
   a.apps = Array.isArray(a.apps) ? a.apps : [];
@@ -1640,34 +1760,128 @@ function deriveFields(a){
   a.housing = a.apto === 'Sim' ? '必要' : a.apto === 'Não' ? '不要' : 'どちらでも';
   return a;
 }
-function fromSheetRow(o){
-  const S = v => (v === undefined || v === null) ? '' : String(v);
-  return deriveFields({
-    id:S(o.id), createdAt:S(o.createdAt), name:S(o.name), age:parseInt(o.age, 10) || null, gender:S(o.gender), phone:S(o.phone),
-    apps:S(o.appsText).split('・').filter(Boolean), cityText:S(o.cityText), residence:'', nihongo:S(o.nihongo),
-    cert:S(o.qualsText).split('・').map(x => REV_CERT[x]).filter(Boolean), certOther:S(o.certOther), reach:S(o.reachText) === 'あり',
-    job:S(o.job), car:S(o.car), apto:S(o.apto), filhos:S(o.filhos),
-    interviewDate:S(o.interviewDate), interviewTime:S(o.interviewTime), wage:S(o.wage), vaga:S(o.vaga), interviewer:S(o.interviewer),
-    shift:S(o.shift) || 'どちらでも', wishLocation:S(o.wishLocation) || 'どこでも', obs:S(o.obs), assigned:S(o.assigned), top:S(o.top)
+
+/* ---------- スプレッドシートの履歴を読み込む ----------
+   列名が日本語・ポルトガル語のどちらでも、列の並びが違っても読めるようにしています。
+   見出しが読み取れないときは、添付フォームの項目順（［日時］氏名・年齢・性別…）として読みます。 */
+const hnorm = s => String(nz(s)).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\s_\-・:：()（）\/／%％?？!！.。,、]/g, '');
+const HSYN = {
+  id:['id'], createdAt:['登録日時','timestamp','carimbodedatahora','datahora','日時','登録日','dataenvio'],
+  name:['nome','nomecompleto','氏名','名前','name','fullname'],
+  age:['idade','年齢','age'], gender:['genero','性別','gender','sexo'], phone:['telefone','電話','電話番号','phone','tel','celular'],
+  apps:['apps','aplicativos','aplicativosdecontato','連絡アプリ','連絡用アプリ','連絡'],
+  city:['cidade','お住まい','住所','在住地','住まい','city'],
+  nihongo:['nihongo','日本語','日本語力','日本語能力'],
+  cert:['cert','certificacao','資格','保有資格'], certOther:['certoutros','certificacaooutros','その他資格','資格その他'],
+  reach:['リーチリフト経験','reach'],
+  job:['job','trabalhandoatualmente','trabalhando','現在の仕事','仕事'],
+  car:['car','carro','possuicarro','車'], apto:['apto','precisadeapto','寮','寮希望','社宅'],
+  filhos:['filhos','子供','お子さん'],
+  idate:['dataentrevista','面接日'], itime:['horarioentrevista','horaentrevista','horario','面接時間','時間'],
+  wage:['salario','時給'], vaga:['vaga','vagaoferecida','募集職種','紹介職種'],
+  interviewer:['entrevistador','担当者','担当者名','担当'], obs:['obs','observacoes','comentarios','備考','メモ','備考メモ'],
+  shift:['希望勤務体制'], wish:['希望勤務地'], assigned:['決定先'], top:['おすすめ上位']
+};
+const HSYN_N = {}; Object.keys(HSYN).forEach(f => { HSYN_N[f] = HSYN[f].map(hnorm); });
+const FORM_ORDER = ['name','age','gender','phone','apps','city','nihongo','cert','certOther','job','car','apto','filhos','idate','itime','wage','vaga','interviewer','obs'];
+
+function mapHeaders(headers){
+  const map = {};
+  headers.forEach((h, i) => {
+    const n = hnorm(h); if (!n) return;
+    let best = null, score = 0;
+    Object.keys(HSYN_N).forEach(f => HSYN_N[f].forEach(sy => {
+      if (n === sy){ if (sy.length + 100 > score){ best = f; score = sy.length + 100; } }
+      else if (sy.length >= 3 && n.indexOf(sy) >= 0 && sy.length > score){ best = f; score = sy.length; }
+    }));
+    if (best && map[best] === undefined) map[best] = i;
   });
+  return map;
+}
+const yesno = v => {
+  const n = hnorm(v); if (!n) return '';
+  if (/^(sim|はい|yes|y|あり|有|ある)/.test(n) || n === 's') return 'Sim';
+  if (/^(nao|いいえ|no|なし|無|ない)/.test(n) || n === 'n') return 'Não';
+  return '';
+};
+const histJob = v => /seguro|失業|desemprego|unemploy/.test(hnorm(v)) ? 'Seguro' : yesno(v);
+const histGender = v => { const n = hnorm(v); if (/^(f|fem|女|female)/.test(n)) return '女性'; if (/^(m|masc|男|male)/.test(n)) return '男性'; return ''; };
+function histCert(v){
+  const out = { cert:[], reach:false };
+  String(nz(v)).split(/[,、・;；\/／]+/).forEach(tok => {
+    const n = hnorm(tok); if (!n) return;
+    if (/reach|リーチ/.test(n)){ out.reach = true; if (out.cert.indexOf('Empilhadeira') < 0) out.cert.push('Empilhadeira'); return; }
+    let key = '';
+    if (/empilh|フォーク|forklift/.test(n)) key = 'Empilhadeira';
+    else if (/camin|トラック|truck/.test(n)) key = 'Caminhão';
+    else if (/solda|溶接|weld/.test(n)) key = 'Solda';
+    else if (/outros|その他|other/.test(n)) key = 'Outros';
+    if (key && out.cert.indexOf(key) < 0) out.cert.push(key);
+  });
+  return out;
+}
+function fromHistory(headers, rows, tabName){
+  let map = mapHeaders(headers || []), data = rows || [], pos = false;
+  if (Object.keys(map).length < 3){          // 見出しが読み取れない → フォームの項目順として読む
+    pos = true; data = [headers || []].concat(rows || []);
+    const first = String((data[0] || [])[0] || '');
+    const off = /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})|(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})|\d{1,2}:\d{2}/.test(first) ? 1 : 0;
+    map = {}; FORM_ORDER.forEach((f, i) => { map[f] = i + off; });
+  }
+  const out = [];
+  data.forEach((r, idx) => {
+    const get = f => map[f] === undefined ? '' : nz(r[map[f]]);
+    const S = f => String(get(f)).trim();
+    const name = S('name');
+    if (!name || HSYN_N.name.indexOf(hnorm(name)) >= 0) return;          // 空行・見出し行
+    if (name === 'テスト太郎' || /^TEST/.test(S('id'))) return;           // テスト送信の行
+    const c = histCert(get('cert'));
+    let phone = S('phone').replace(/^'/, ''); if (/^\d{10}$/.test(phone) && /^[789]/.test(phone)) phone = '0' + phone;
+    const sheetRow = idx + (pos ? 1 : 2);
+    out.push(deriveFields({
+      id: S('id') || ('H:' + (tabName || '') + ':' + sheetRow), createdAt:S('createdAt'), name,
+      age:parseInt(get('age'), 10) || null, gender:histGender(get('gender')), phone,
+      apps:S('apps').split(/[,、・;；\/／]+/).map(x => x.trim()).filter(Boolean),
+      cityText:S('city'), residence:'', nihongo:S('nihongo').replace(/[^\d.]/g, ''),
+      cert:c.cert, certOther:S('certOther'), reach:c.reach || /あり|sim/.test(hnorm(get('reach'))),
+      job:histJob(get('job')), car:yesno(get('car')), apto:yesno(get('apto')), filhos:S('filhos'),
+      interviewDate:S('idate'), interviewTime:S('itime'), wage:S('wage'), vaga:S('vaga'), interviewer:S('interviewer'),
+      shift:S('shift') || 'どちらでも', wishLocation:S('wish') || 'どこでも', obs:S('obs'), assigned:S('assigned'), top:S('top')
+    }));
+  });
+  return out;
+}
+function personKey(a){
+  const ph = String(nz(a.phone)).replace(/\D/g, ''), nm = String(nz(a.name)).replace(/\s/g, '').toLowerCase();
+  return ph ? nm + '|' + ph : nm + '|' + nz(a.age);
+}
+function dedupeRemote(list){                          // 同じ人が何行もあるときは、いちばん新しい行を使う
+  const m = {}, order = [];
+  list.forEach(r => { const k = personKey(r); if (!(k in m)) order.push(k); m[k] = r; });
+  return order.map(k => m[k]);
 }
 function candidatePool(){
-  const ids = new Set(applicants.map(a => a.id));
-  return [ ...applicants.map(a => deriveFields({...a, _src:'local'})),
-           ...remoteRows.filter(r => !ids.has(r.id)).map(r => ({...r, _src:'sheet'})) ];
+  const local = applicants.map(a => deriveFields({...a, _src:'local'}));
+  const ids = new Set(applicants.map(a => a.id)), keys = new Set(local.map(personKey));
+  const remote = remoteRows.filter(r => !ids.has(r.id) && !keys.has(personKey(r))).map(r => ({...r, _src:'sheet'}));
+  return local.concat(remote);
 }
 function updateSearchSource(){
-  const b = remoteRows.filter(r => !applicants.some(a => a.id === r.id)).length;
+  const b = candidatePool().filter(c => c._src === 'sheet').length;
   $('search-source').textContent = t('search.source', {a: applicants.length, b});
 }
 async function loadRemote(manual){
-  if (!sheetUrl || sheetMode !== 'json'){ if (manual) showMsg('msg-search','info', t('search.needmode')); return false; }
+  if (!sheetUrl){ if (manual) showMsg('msg-search','err', t('sheet.needurl')); return false; }
   try {
-    const res = await fetch(sheetUrl + (sheetUrl.includes('?') ? '&' : '?') + 'action=list');
-    const j = await res.json();
-    remoteRows = (j.rows || []).filter(r => r.id && !String(r.id).startsWith('TEST') && r.name).map(fromSheetRow);
+    const url = sheetUrl + (sheetUrl.indexOf('?') >= 0 ? '&' : '?') + 'action=history' + (sheetKey ? '&key=' + encodeURIComponent(sheetKey) : '');
+    const res = await fetch(url);
+    const txt = await res.text();
+    let j = null; try { j = JSON.parse(txt); } catch(e){}
+    if (!j){ if (manual) showMsg('msg-search','err', t('search.loadfail')); return false; }
+    if (j.error){ if (manual) showMsg('msg-search','err', t(j.error === 'unauthorized' ? 'search.unauth' : 'search.loadfail')); return false; }
+    remoteRows = dedupeRemote(fromHistory(j.headers, j.rows, j.tab));
     remoteLoaded = true; updateSearchSource();
-    if (manual) showMsg('msg-search','ok', t('search.loaded',{n:remoteRows.length}));
+    if (manual) showMsg('msg-search','ok', t('search.loaded',{n:remoteRows.length, tab:j.tab || ''}));
     return true;
   } catch(e){ if (manual) showMsg('msg-search','err', t('search.loadfail')); return false; }
 }
@@ -1687,6 +1901,7 @@ function applyFactoryToSearch(){
   $('s-shift').value = f.shifts.length === 1 ? f.shifts[0] : '';
   $('s-loc').value = f.locations[0] ? cityLabel(f.locations[0]) : '';
   $('s-house').value = f.housing === '記載なし' ? '' : f.housing;
+  syncCards();
 }
 function readCriteria(){
   const num = id => { const n = parseInt($(id).value, 10); return isNaN(n) ? null : n; };
@@ -1810,11 +2025,11 @@ function runSearch(silent){
   }
   const box = $('search-results'); box.innerHTML = html; box.dataset.shown = '1';
   $('btn-search-copy').addEventListener('click', () => {
-    const tsv = [SEARCH_COLS.join('\t')].concat(lastGood.map(r => searchRow(r.c).map(v => String(v ?? '').replace(/[\t\r\n]+/g, ' ')).join('\t'))).join('\n');
+    const tsv = [SEARCH_COLS.join('\t')].concat(lastGood.map(r => searchRow(r.c).map(v => String(nz(v)).replace(/[\t\r\n]+/g, ' ')).join('\t'))).join('\n');
     copyText(tsv, 'msg-search', 'copy.done');
   });
   $('btn-search-csv').addEventListener('click', () => {
-    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const q = v => '"' + String(nz(v)).replace(/"/g, '""') + '"';
     const csv = [SEARCH_COLS.map(q).join(',')].concat(lastGood.map(r => searchRow(r.c).map(q).join(','))).join('\r\n');
     const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob), a = document.createElement('a');
@@ -1843,6 +2058,7 @@ async function placeFromSearch(id){
   if (!rec){
     const r = remoteRows.find(x => x.id === id); if (!r) return;
     rec = {...r}; delete rec._src; applicants.unshift(rec);
+    if (String(rec.id).indexOf('H:') === 0){ rec.sentForm = Date.now(); rec.sentKey = payloadKey(rec); }   // 既にシートにある行は再送しない
   }
   const res = await placeRec(rec, f);
   if (res.err){ showMsg('msg-search','err', t(res.err)); return; }
@@ -1851,7 +2067,10 @@ async function placeFromSearch(id){
 }
 async function openSearchTab(){
   fillSearchFactories(); updateSearchSource();
-  if (!remoteLoaded && sheetUrl && sheetMode === 'json'){ await loadRemote(false); }
+  if (!remoteLoaded && sheetUrl){
+    const ok = await loadRemote(false);
+    if (!ok && !autoWarned){ autoWarned = true; showMsg('msg-search','info', t('search.autofail')); }
+  }
 }
 function bindSearch(){
   $('s-factory').addEventListener('change', applyFactoryToSearch);
@@ -1862,6 +2081,7 @@ function bindSearch(){
     ['s-gender','s-shift','s-house','s-factory'].forEach(id => $(id).value = '');
     $('s-km').value = 20; $('s-car').checked = false; $('s-idle').checked = false; $('s-excl').checked = true;
     document.querySelectorAll('input[name=smust], input[name=sprefer]').forEach(x => { x.checked = false; });
+    syncCards();
     $('search-results').innerHTML = ''; delete $('search-results').dataset.shown; clearMsg('msg-search');
   });
 }
@@ -1872,7 +2092,7 @@ function bindSearch(){
 function setLang(l){
   lang = l;
   try { localStorage.setItem('lang', l); } catch(e){}
-  applyStatic(); initSelects(); updateCityHint(); fillSearchFactories(); updateSearchSource();
+  applyStatic(); initSelects(); updateCityHint(); fillSearchFactories(); updateSearchSource(); updateWarn();
   ['msg-form','msg-list','msg-url'].forEach(clearMsg);
   renderApplicants();
   if (activeTab() === 'tab-factory') renderFactoryAdmin();
@@ -1884,1164 +2104,15 @@ function setLang(l){
 }
 $('lang-select').addEventListener('change', e => setLang(e.target.value));
 
-applyStatic(); initSelects(); bindForm(); bindSearch(); renderApplicants();
-</script>
-</body>
-</html>
-
-  * { box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; background:#f4f6f9; color:#333; margin:0; padding:10px; }
-  .container { max-width:520px; margin:0 auto; }
-  .topbar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 4px; }
-  h1 { font-size:1.05rem; color:#1e3a8a; margin:0; flex:1; }
-  #lang-select { width:auto; padding:6px 8px; font-size:.9rem; border:1px solid #94a3b8; border-radius:6px; background:#fff; }
-  h2 { font-size:1rem; color:#1e3a8a; margin:0 0 10px; }
-
-  .tabs { display:flex; gap:4px; margin:10px 0 12px; }
-  .tab-btn { flex:1; padding:10px 4px; border:none; border-radius:8px 8px 0 0; background:#dbe3f3; color:#1e3a8a; font-weight:bold; font-size:.82rem; cursor:pointer; }
-  .tab-btn.active { background:#1e3a8a; color:#fff; }
-  .tab { display:none; }
-  .tab.active { display:block; }
-
-  .box { background:#fff; padding:15px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.1); margin-bottom:15px; }
-
-  .field { margin-bottom:12px; }
-  .field > label { display:block; font-weight:bold; font-size:.85rem; margin-bottom:4px; }
-  .req { color:#dc2626; font-size:.75rem; margin-left:4px; }
-  input[type=text], input[type=tel], input[type=number], select, textarea {
-    width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; font-size:1rem; background:#fff; font-family:inherit; }
-  textarea { min-height:60px; resize:vertical; }
-  .row2 { display:flex; gap:10px; }
-  .row2 > .field { flex:1; }
-  .chips { display:flex; gap:6px; }
-  .chips label { flex:1; text-align:center; padding:10px 4px; border:1px solid #ccc; border-radius:6px; font-size:.9rem; cursor:pointer; background:#fff; }
-  .chips input { display:none; }
-  .chips label.on { background:#1e3a8a; color:#fff; border-color:#1e3a8a; font-weight:bold; }
-
-  .btn { display:block; width:100%; padding:12px; border:none; border-radius:6px; font-size:1rem; font-weight:bold; cursor:pointer; margin-top:8px; }
-  .btn-main { background:#1e3a8a; color:#fff; }
-  .btn-green { background:#059669; color:#fff; }
-  .btn-sub { background:#e2e8f0; color:#334155; }
-  .btn-sm { display:inline-block; width:auto; padding:6px 10px; font-size:.8rem; margin:0; }
-  .btn-red { background:#fee2e2; color:#b91c1c; }
-  .msg { font-size:.85rem; margin-top:8px; padding:8px 10px; border-radius:6px; display:none; }
-  .msg.ok { display:block; background:#dcfce7; color:#166534; }
-  .msg.err { display:block; background:#fee2e2; color:#991b1b; }
-  .msg.info { display:block; background:#e0f2fe; color:#075985; }
-
-  .factory-card { background:#fff; padding:14px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.1); margin-bottom:12px; border-left:5px solid #2563eb; }
-  .factory-card.full { border-left-color:#9ca3af; opacity:.85; }
-  .factory-card.s-great { border-left-color:#16a34a; }
-  .factory-card.s-good { border-left-color:#2563eb; }
-  .factory-card.s-fair { border-left-color:#f59e0b; }
-  .factory-name { font-size:1.05rem; font-weight:bold; color:#1e3a8a; margin:0 0 8px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  .badge { font-size:.78rem; padding:3px 8px; border-radius:12px; background:#e0e7ff; color:#1e3a8a; white-space:nowrap; }
-  .badge.great { background:#dcfce7; color:#166534; }
-  .badge.fair { background:#fef3c7; color:#92400e; }
-  .info-table { width:100%; border-collapse:collapse; margin-bottom:8px; }
-  .info-table td { padding:3px 0; font-size:.88rem; vertical-align:top; }
-  .info-table td.label { width:84px; color:#666; font-weight:bold; }
-  .reasons { font-size:.82rem; margin:6px 0 8px; line-height:1.6; }
-  .reasons .ok { color:#166534; }
-  .reasons .warn { color:#b45309; }
-  .reasons .ng { color:#b91c1c; }
-  .bar { height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; margin:2px 0 6px; }
-  .bar > div { height:100%; background:#2563eb; }
-
-  .status-box { background:#f8fafc; border:1px solid #e2e8f0; padding:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:stretch; gap:4px; }
-  .status-item { text-align:center; flex:1; }
-  .status-item span { display:block; font-size:.72rem; color:#64748b; }
-  .status-item strong { font-size:1.15rem; color:#334155; }
-  .status-item strong.remaining { color:#dc2626; font-size:1.35rem; }
-  .status-item strong.remaining.zero { color:#6b7280; }
-  .stepper { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:2px; }
-  .stepper button { width:30px; height:30px; border-radius:50%; border:1px solid #cbd5e1; background:#fff; font-size:1.1rem; cursor:pointer; line-height:1; }
-  .card-actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
-  .edit-panel { display:none; background:#f8fafc; border:1px dashed #94a3b8; border-radius:6px; padding:10px; margin-top:8px; }
-  .edit-panel.open { display:block; }
-  .edit-panel .field { margin-bottom:8px; }
-  .edit-panel input, .edit-panel select { padding:7px; font-size:.9rem; }
-  .check-line { display:flex; gap:12px; font-size:.9rem; }
-  .check-line label { display:flex; align-items:center; gap:4px; }
-  .check-line input { width:auto; }
-
-  .app-item { border-bottom:1px solid #e5e7eb; padding:10px 0; font-size:.88rem; }
-  .app-item:last-child { border-bottom:none; }
-  .app-item .nm { font-weight:bold; font-size:.98rem; }
-  .app-item .sub { color:#64748b; }
-  .tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.75rem; background:#dcfce7; color:#166534; margin-left:6px; }
-  .tag.none { background:#f1f5f9; color:#64748b; }
-  details summary { cursor:pointer; font-weight:bold; font-size:.9rem; color:#1e3a8a; padding:4px 0; }
-  pre.code { background:#0f172a; color:#e2e8f0; padding:10px; border-radius:6px; font-size:.72rem; overflow-x:auto; white-space:pre; max-height:260px; }
-  .small { font-size:.8rem; color:#64748b; line-height:1.6; }
-
-  /* ===== レスポンシブ（スマホ／PC 自動切替） ===== */
-  html { -webkit-text-size-adjust:100%; }
-  body { padding-left:max(10px, env(safe-area-inset-left)); padding-right:max(10px, env(safe-area-inset-right)); padding-bottom:max(10px, env(safe-area-inset-bottom)); }
-  button, .chips label { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
-  .tabs { position:sticky; top:0; z-index:20; background:#f4f6f9; padding-top:6px; margin-top:6px; }
-  .chips.wrap { flex-wrap:wrap; }
-  .chips.wrap label { flex:1 1 44%; }
-  .chips.sub-chip { margin:6px 0 0 14px; }
-
-  /* スマホ */
-  @media (max-width: 600px) {
-    body { padding-top:6px; }
-    h1 { font-size:.95rem; }
-    .box { padding:12px; }
-    input[type=text], input[type=tel], input[type=number], select, textarea { font-size:16px !important; } /* iPhoneの自動ズーム防止 */
-    #lang-select { font-size:14px !important; }
-    .btn { padding:14px; font-size:1.02rem; }
-    .btn-sm { padding:10px 12px; font-size:.85rem; }
-    .card-actions .btn-sm { flex:1 1 auto; text-align:center; }
-    .stepper button { width:40px; height:40px; }
-    .row2 { gap:8px; }
-    .chips label { padding:12px 4px; }
-    .tab-btn { font-size:.78rem; padding:12px 2px; }
-    .info-table td.label { width:72px; }
-    .status-item strong { font-size:1.05rem; }
-    .status-item strong.remaining { font-size:1.2rem; }
-  }
-  /* PC・タブレット（横幅が広いとき） */
-  @media (min-width: 900px) {
-    .container { max-width:1100px; }
-    h1 { font-size:1.3rem; }
-    .tab-btn { font-size:.95rem; }
-    #tab-input.active { display:grid; grid-template-columns:minmax(380px,1fr) minmax(380px,1fr); gap:18px; align-items:start; }
-    #match-area { position:sticky; top:64px; max-height:calc(100vh - 80px); overflow-y:auto; }
-    #factory-admin { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; align-items:start; }
-    #factory-admin .factory-card { margin-bottom:0; }
-    #tab-list.active { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
-    #tab-list > .box:nth-child(1) { grid-column:1; grid-row:1; }
-    #tab-list > .box:nth-child(2) { grid-column:2; grid-row:1 / span 2; }
-    #tab-list > .box:nth-child(3) { grid-column:1; grid-row:2; }
-    .btn:hover { filter:brightness(1.07); }
-  }
-</style>
-</head>
-<body>
-<div class="container">
-  <div class="topbar">
-    <h1 data-i18n="app.title"></h1>
-    <select id="lang-select" aria-label="Language">
-      <option value="ja">日本語</option>
-      <option value="en">English</option>
-      <option value="pt">Português</option>
-    </select>
-  </div>
-
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="tab-input" data-i18n="tab.input"></button>
-    <button class="tab-btn" data-tab="tab-factory" data-i18n="tab.factory"></button>
-    <button class="tab-btn" data-tab="tab-list" data-i18n="tab.list"></button>
-  </div>
-
-  <!-- ===== 1. Applicant input + matching ===== -->
-  <div id="tab-input" class="tab active">
-    <div class="box">
-      <h2 data-i18n="form.title"></h2>
-      <div class="field">
-        <label><span data-i18n="f.name"></span><span class="req" data-i18n="req"></span></label>
-        <input type="text" id="f-name" data-i18n-ph="ph.name" autocomplete="off">
-      </div>
-      <div class="field">
-        <label data-i18n="f.kana"></label>
-        <input type="text" id="f-kana" data-i18n-ph="ph.kana" autocomplete="off">
-      </div>
-      <div class="row2">
-        <div class="field">
-          <label><span data-i18n="f.age"></span><span class="req" data-i18n="req"></span></label>
-          <input type="number" id="f-age" inputmode="numeric" min="15" max="80" data-i18n-ph="ph.age">
-        </div>
-        <div class="field">
-          <label data-i18n="f.phone"></label>
-          <input type="tel" id="f-phone" placeholder="090-0000-0000">
-        </div>
-      </div>
-      <div class="field">
-        <label><span data-i18n="f.gender"></span><span class="req" data-i18n="req"></span></label>
-        <div class="chips" id="chips-gender">
-          <label><input type="radio" name="gender" value="男性"><span data-i18n="v.男性"></span></label>
-          <label><input type="radio" name="gender" value="女性"><span data-i18n="v.女性"></span></label>
-          <label><input type="radio" name="gender" value="その他"><span data-i18n="v.その他"></span></label>
-        </div>
-      </div>
-      <div class="field">
-        <label><span data-i18n="f.residence"></span><span class="req" data-i18n="req"></span></label>
-        <select id="f-residence"></select>
-      </div>
-      <div class="field">
-        <label data-i18n="f.shift"></label>
-        <div class="chips" id="chips-shift">
-          <label><input type="radio" name="shift" value="どちらでも" checked><span data-i18n="v.どちらでも"></span></label>
-          <label><input type="radio" name="shift" value="昼勤のみ"><span data-i18n="v.昼勤のみ"></span></label>
-          <label><input type="radio" name="shift" value="夜勤のみ"><span data-i18n="v.夜勤のみ"></span></label>
-        </div>
-      </div>
-      <div class="field">
-        <label data-i18n="f.housing"></label>
-        <div class="chips" id="chips-housing">
-          <label><input type="radio" name="housing" value="どちらでも" checked><span data-i18n="v.どちらでも"></span></label>
-          <label><input type="radio" name="housing" value="必要"><span data-i18n="v.必要"></span></label>
-          <label><input type="radio" name="housing" value="不要"><span data-i18n="v.不要"></span></label>
-        </div>
-      </div>
-      <div class="field">
-        <label data-i18n="f.wish"></label>
-        <select id="f-wish"></select>
-      </div>
-      <div class="field">
-        <label data-i18n="f.quals"></label>
-        <div class="chips wrap" id="chips-quals">
-          <label><input type="checkbox" name="qual" value="car"><span data-i18n="q.car"></span></label>
-          <label><input type="checkbox" name="qual" value="forklift"><span data-i18n="q.forklift"></span></label>
-          <label><input type="checkbox" name="qual" value="truck"><span data-i18n="q.truck"></span></label>
-          <label><input type="checkbox" name="qual" value="weld"><span data-i18n="q.weld"></span></label>
-        </div>
-        <div class="chips sub-chip" id="chips-reach">
-          <label><input type="checkbox" id="f-reach"><span data-i18n="q.reachsub"></span></label>
-        </div>
-      </div>
-      <div class="field">
-        <label data-i18n="f.memo"></label>
-        <textarea id="f-memo" data-i18n-ph="ph.memo"></textarea>
-      </div>
-
-      <button class="btn btn-main" id="btn-match" data-i18n="btn.match"></button>
-      <button class="btn btn-green" id="btn-register" data-i18n="btn.register"></button>
-      <button class="btn btn-sub" id="btn-clear" data-i18n="btn.clear"></button>
-      <div id="msg-form" class="msg"></div>
-    </div>
-
-    <div id="match-area"></div>
-  </div>
-
-  <!-- ===== 2. Factory slots ===== -->
-  <div id="tab-factory" class="tab">
-    <div class="box">
-      <h2 data-i18n="fac.title"></h2>
-      <p class="small" style="margin-top:0" data-i18n="fac.help"></p>
-      <button class="btn btn-sub" id="btn-add-factory" data-i18n="fac.add"></button>
-      <button class="btn btn-sub" id="btn-reset-factory" data-i18n="fac.reset"></button>
-    </div>
-    <div id="factory-admin"></div>
-  </div>
-
-  <!-- ===== 3. Applicant list ===== -->
-  <div id="tab-list" class="tab">
-    <div class="box">
-      <h2 id="list-title"></h2>
-      <button class="btn btn-main" id="btn-copy" data-i18n="list.copy"></button>
-      <button class="btn btn-sub" id="btn-csv" data-i18n="list.csv"></button>
-      <p class="small" data-i18n="list.note"></p>
-      <div id="msg-list" class="msg"></div>
-    </div>
-    <div class="box" id="app-list"></div>
-
-    <div class="box">
-      <h2 data-i18n="sheet.title"></h2>
-      <p class="small" style="margin-top:0" data-i18n="sheet.intro"></p>
-      <details>
-        <summary data-i18n="sheet.steps"></summary>
-        <ol class="small" style="padding-left:18px">
-          <li data-i18n="sheet.s1"></li>
-          <li data-i18n="sheet.s2"></li>
-          <li data-i18n="sheet.s3"></li>
-          <li data-i18n="sheet.s4"></li>
-        </ol>
-        <pre class="code" id="gas-code"></pre>
-        <button class="btn btn-sub btn-sm" id="btn-copy-gas" data-i18n="sheet.copycode"></button>
-      </details>
-      <div class="field" style="margin-top:12px">
-        <label data-i18n="sheet.url"></label>
-        <input type="text" id="f-sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
-      </div>
-      <button class="btn btn-sub" id="btn-save-url" data-i18n="sheet.saveurl"></button>
-      <button class="btn btn-sub" id="btn-test-url" data-i18n="sheet.test"></button>
-      <div id="msg-url" class="msg"></div>
-    </div>
-  </div>
-</div>
-
-<script>
-/* =========================================================
-   i18n : [日本語, English, Português]
-   ※ データ内部の値（昼勤・あり 等）は日本語のまま保持し、表示時にだけ翻訳します
-   ========================================================= */
-const LANGS = ['ja','en','pt'];
-const I18N = {
- 'app.title':['📋 応募者マッチング＆枠管理（社内用）','📋 Applicant Matching & Slot Management (internal use)','📋 Seleção de Candidatos e Vagas (uso interno)'],
- 'tab.input':['① 応募者入力','① Applicant','① Candidato'],
- 'tab.factory':['② 工場の枠','② Factory slots','② Vagas das fábricas'],
- 'tab.list':['③ 応募者一覧','③ Applicants','③ Candidatos'],
- 'req':['必須','Required','Obrigatório'],
- 'form.title':['簡易履歴書','Quick Resume','Currículo simples'],
- 'f.name':['お名前','Name','Nome'],
- 'f.kana':['フリガナ','Name reading (furigana)','Leitura do nome (furigana)'],
- 'f.age':['年齢','Age','Idade'],
- 'f.phone':['電話番号','Phone','Telefone'],
- 'f.gender':['性別','Gender','Sexo'],
- 'f.residence':['在住場所','Place of residence','Local de residência'],
- 'f.shift':['希望勤務体制','Preferred shift','Turno preferido'],
- 'f.housing':['社宅','Company housing','Moradia da empresa'],
- 'f.wish':['働きたい場所（任意）','Preferred work location (optional)','Local de trabalho desejado (opcional)'],
- 'f.memo':['メモ（免許・経験・希望など）','Notes (license, experience, requests…)','Observações (carteira, experiência, pedidos…)'],
- 'ph.name':['例）山田 太郎','e.g. Taro Yamada','ex.: Taro Yamada'],
- 'ph.kana':['例）ヤマダ タロウ','e.g. ヤマダ タロウ','ex.: ヤマダ タロウ'],
- 'ph.age':['例）32','e.g. 32','ex.: 32'],
- 'ph.memo':['例）フォークリフト免許あり／即日勤務可','e.g. Forklift license / can start right away','ex.: Carteira de empilhadeira / pode começar já'],
- 'sel.choose':['選択してください','Please select','Selecione'],
- 'f.quals':['保有資格（任意）','Qualifications (optional)','Qualificações (opcional)'],
- 'q.car':['自動車免許','Driver\'s license','Carteira de motorista'],
- 'q.forklift':['フォークリフト','Forklift','Empilhadeira'],
- 'q.truck':['中型（4t）トラック','Medium (4t) truck','Caminhão médio (4t)'],
- 'q.weld':['溶接','Welding','Soldagem'],
- 'q.reach':['リーチリフト経験','Reach-lift experience','Experiência com reach'],
- 'q.reachsub':['└ リーチリフトの経験あり','└ Has reach-lift experience','└ Tem experiência com empilhadeira reach'],
- 'i.want':['募集中の資格','Seeking','Procura'],
- 'fac.wants':['優先して探している資格・経験（該当者をマッチング上位に）','Preferred qualifications / experience (matching people rank higher)','Qualificações / experiência prioritárias (quem tiver sobe no ranking)'],
- 'r.want':['募集中の資格を保有：{q}','Has a skill they are looking for: {q}','Possui habilidade procurada: {q}'],
- 'r.reachq':['フォークリフト資格あり（リーチリフト経験は要確認）','Has forklift qualification (reach-lift experience to be confirmed)','Tem qualificação de empilhadeira (experiência com reach a confirmar)'],
- 'match.quals':['保有資格：{q}','Qualifications: {q}','Qualificações: {q}'],
- 'slot.female':['女性枠','Female slots','Vagas femininas'],
- 'slot.femaleHint':['総枠のうち女性限定の数','part of the total reserved for women','parte do total reservada a mulheres'],
- 'r.femaleslot':['女性枠が空いています（残り{n}）','Female slot available ({n} left)','Vaga feminina disponível (restam {n})'],
- 'ng.femaleonly':['残り枠は女性専用','Remaining slots are female-only','As vagas restantes são só para mulheres'],
- 'ng.reserved':['残り枠は男性枠・女性枠のみ','Remaining slots are reserved for men/women only','As vagas restantes são reservadas só para homens/mulheres'],
- 'slot.male':['男性枠','Male slots','Vagas masculinas'],
- 'slot.maleHint':['総枠のうち男性限定の数','part of the total reserved for men','parte do total reservada a homens'],
- 'fac.boost':['優先度（おすすめ加点 0〜30／全員への上乗せ）','Priority boost (0–30 extra points for everyone)','Prioridade (0–30 pontos extras para todos)'],
- 'r.boost':['優先して紹介したい工場','Priority factory (preferred for referrals)','Fábrica prioritária (preferida nas indicações)'],
- 'r.maleslot':['男性枠が空いています（残り{n}）','Male slot available ({n} left)','Vaga masculina disponível (restam {n})'],
- 'ng.maleonly':['残り枠は男性専用','Remaining slots are male-only','As vagas restantes são só para homens'],
- 'v.res.その他':['その他（上記以外・遠方）','Other (not listed / far away)','Outro (não listado / distante)'],
- 'btn.match':['🔍 この人に合う工場を探す','🔍 Find factories for this person','🔍 Buscar fábricas para esta pessoa'],
- 'btn.register':['📤 スプレッドシートに登録','📤 Register to spreadsheet','📤 Registrar na planilha'],
- 'btn.clear':['入力をクリア（次の方へ）','Clear form (next person)','Limpar (próximo candidato)'],
-
- /* values */
- 'v.男性':['男性','Male','Masculino'],
- 'v.女性':['女性','Female','Feminino'],
- 'v.その他':['その他','Other','Outro'],
- 'v.どちらでも':['どちらでも','Either','Tanto faz'],
- 'v.昼勤のみ':['昼勤のみ','Day shift only','Só turno diurno'],
- 'v.夜勤のみ':['夜勤のみ','Night shift only','Só turno noturno'],
- 'v.必要':['必要','Needed','Necessária'],
- 'v.不要':['不要','Not needed','Não necessária'],
- 'v.どこでも':['どこでも','Anywhere','Qualquer lugar'],
- 'v.昼勤':['昼勤','Day','Diurno'],
- 'v.夜勤':['夜勤','Night','Noturno'],
- 'v.あり':['あり','Yes','Sim'],
- 'v.なし':['なし','No','Não'],
- 'v.記載なし':['記載なし','Not stated','Não informado'],
- 'v.不問':['不問','Any','Indiferente'],
- 'v.男性推奨':['男性推奨','Men preferred','Preferência masculina'],
- 'v.女性推奨':['女性推奨','Women preferred','Preferência feminina'],
-
- /* cities */
- 'c.稲沢市':['稲沢市','Inazawa','Inazawa'],'c.一宮市':['一宮市','Ichinomiya','Ichinomiya'],
- 'c.小牧市':['小牧市','Komaki','Komaki'],'c.北名古屋市':['北名古屋市','Kitanagoya','Kitanagoya'],
- 'c.名古屋市':['名古屋市','Nagoya','Nagoya'],'c.清須市':['清須市','Kiyosu','Kiyosu'],
- 'c.春日井市':['春日井市','Kasugai','Kasugai'],'c.岩倉市':['岩倉市','Iwakura','Iwakura'],
- 'c.江南市':['江南市','Konan','Konan'],'c.犬山市':['犬山市','Inuyama','Inuyama'],
- 'c.津島市':['津島市','Tsushima','Tsushima'],'c.あま市':['あま市','Ama','Ama'],
- 'c.愛西市':['愛西市','Aisai','Aisai'],'c.弥富市':['弥富市','Yatomi','Yatomi'],
- 'c.岐阜市':['岐阜市','Gifu','Gifu'],'c.羽島市':['羽島市','Hashima','Hashima'],
- 'c.各務原市':['各務原市','Kakamigahara','Kakamigahara'],'c.大口町':['大口町','Oguchi','Oguchi'],
- 'c.扶桑町':['扶桑町','Fuso','Fuso'],'c.豊田市':['豊田市','Toyota','Toyota'],
- 'c.岡崎市':['岡崎市','Okazaki','Okazaki'],'c.和歌山県':['和歌山県','Wakayama (Pref.)','Wakayama (Prov.)'],
-
- /* match */
- 'match.title':['🎯 {name} に合う工場（{n}件）','🎯 Factories matching {name} ({n})','🎯 Fábricas compatíveis com {name} ({n})'],
- 'match.thisperson':['この方','this person','esta pessoa'],
- 'match.sum':['在住：{res} ／ {age}歳 ／ {gender} ／ {shift} ／ 社宅：{housing}','Lives in: {res} / Age {age} / {gender} / {shift} / Housing: {housing}','Reside em: {res} / {age} anos / {gender} / {shift} / Moradia: {housing}'],
- 'match.none':['条件に合う工場がありません。「条件外」の理由を確認するか、②で枠・条件を見直してください。','No factory matches. Check the reasons under "Excluded", or review slots/conditions in tab ②.','Nenhuma fábrica compatível. Veja os motivos em "Excluídas" ou revise as vagas/condições na aba ②.'],
- 'grade.great':['◎ おすすめ','◎ Excellent','◎ Ótima'],
- 'grade.good':['○ 合う','○ Good','○ Boa'],
- 'grade.fair':['△ 要相談','△ Discuss','△ A combinar'],
- 'pts':['{n}点','{n} pts','{n} pts'],
- 'excluded':['条件外の工場（{n}件）','Excluded factories ({n})','Fábricas excluídas ({n})'],
- 'btn.decide':['✅ この工場に決定（在籍＋1）','✅ Place here (+1 placed)','✅ Definir aqui (+1 em atividade)'],
- 'btn.decided':['✅ 決定済み','✅ Placed','✅ Definido'],
-
- /* factory info */
- 'i.loc':['勤務地','Location','Local'],
- 'i.shift':['勤 務','Shift','Turno'],
- 'i.house':['社 宅','Housing','Moradia'],
- 'i.target':['対 象','Target','Perfil'],
- 'i.targetval':['年齢：{age} / 性別：{gender}','Age: {age} / Gender: {gender}','Idade: {age} / Sexo: {gender}'],
- 'age.range':['{a}〜{b}歳','{a}–{b} yrs','{a}–{b} anos'],
- 's.cap':['募集定員','Capacity','Vagas totais'],
- 's.cur':['在籍人数','Placed now','Em atividade'],
- 's.rem':['残り枠','Open slots','Vagas livres'],
- 'n.people':['{n}名','{n}','{n}'],
- 'full':['満員','Full','Lotada'],
-
- /* reasons */
- 'r.slots':['残り枠 {n}名','Open slots: {n}','Vagas livres: {n}'],
- 'r.ageok':['年齢条件OK（{r}）','Age requirement met ({r})','Faixa etária OK ({r})'],
- 'ng.full':['満員（残り枠なし）','Full (no open slots)','Lotada (sem vagas)'],
- 'ng.agemin':['年齢条件外（{n}歳以上）','Outside age range (min. {n})','Fora da faixa etária (mín. {n})'],
- 'ng.agemax':['年齢条件外（{n}歳まで）','Outside age range (max. {n})','Fora da faixa etária (máx. {n})'],
- 'r.male':['男性が活躍中','Men are active here','Homens atuando aqui'],
- 'r.female':['女性が活躍中','Women are active here','Mulheres atuando aqui'],
- 'w.maleWork':['男性中心の職場','Mostly male workplace','Ambiente predominantemente masculino'],
- 'w.femaleWork':['女性中心の職場','Mostly female workplace','Ambiente predominantemente feminino'],
- 'r.day':['昼勤OK','Day shift available','Turno diurno disponível'],
- 'r.night':['夜勤OK','Night shift available','Turno noturno disponível'],
- 'ng.noday':['昼勤なし','No day shift','Sem turno diurno'],
- 'ng.nonight':['夜勤なし','No night shift','Sem turno noturno'],
- 'r.shifts':['勤務体制：{s}','Shifts: {s}','Turnos: {s}'],
- 'r.near':['通勤が近い（約{n}km）','Short commute (approx. {n} km)','Trajeto curto (cerca de {n} km)'],
- 'r.zone':['通勤圏内（約{n}km）','Within commuting range (approx. {n} km)','Dentro da área de deslocamento (cerca de {n} km)'],
- 'r.car':['車なら通勤可（約{n}km）','Commutable by car (approx. {n} km)','Acessível de carro (cerca de {n} km)'],
- 'w.far':['通勤やや遠い（約{n}km）','Somewhat far (approx. {n} km)','Um pouco longe (cerca de {n} km)'],
- 'w.farhouse':['遠方：社宅利用が前提','Far away: company housing assumed','Distante: pressupõe moradia da empresa'],
- 'ng.far':['遠方で社宅なし（通勤困難）','Too far and no housing (hard to commute)','Distante e sem moradia (deslocamento difícil)'],
- 'w.dist':['距離は要確認','Distance to be confirmed','Distância a confirmar'],
- 'r.house':['社宅あり','Company housing available','Com moradia da empresa'],
- 'w.houseq':['社宅は要確認','Housing to be confirmed','Moradia a confirmar'],
- 'ng.nohouse':['社宅なし','No company housing','Sem moradia da empresa'],
- 'r.wish':['希望の勤務地','Preferred location','Local desejado'],
-
- /* messages */
- 'm.miss':['未入力：{x}','Missing: {x}','Faltando: {x}'],
- 'm.need3':['年齢・性別・在住場所を入力してください（名前は登録時に必要です）。','Please enter age, gender and residence (name is required when registering).','Informe idade, sexo e local de residência (o nome é obrigatório ao registrar).'],
- 'm.needdecide':['決定するには入力が必要です：{x}','Required to confirm placement: {x}','Necessário para definir a vaga: {x}'],
- 'm.full':['この工場は満員です。','This factory is full.','Esta fábrica está lotada.'],
- 'm.decided':['{f} に決定しました（在籍 {c}/{cap}）。','Placed at {f} ({c}/{cap}). ','Definido em {f} ({c}/{cap}). '],
- 'm.sent':['{name} さんをスプレッドシートに送信しました（シートで反映を確認してください）。','{name} was sent to the spreadsheet (please check the sheet).','{name} foi enviado(a) à planilha (confira na planilha).'],
- 'm.none':['{name} さんを端末に保存しました。（スプレッドシート自動連携は③で設定できます。今は「全件コピー」「CSV」で貼り付け可能）','{name} was saved on this device. (Set up auto-sync in tab ③. For now use "Copy all" or CSV.)','{name} foi salvo(a) neste aparelho. (Configure a sincronização na aba ③. Por enquanto use "Copiar tudo" ou CSV.)'],
- 'm.error':['{name} さんを端末に保存しましたが、スプレッドシートへの送信に失敗しました。電波状況やURLを確認してください。','{name} was saved on this device, but sending to the spreadsheet failed. Check your connection and the URL.','{name} foi salvo(a) neste aparelho, mas o envio à planilha falhou. Verifique a conexão e a URL.'],
-
- /* factory admin */
- 'fac.title':['工場ごとの枠（現状に合わせて編集）','Slots per factory (edit to match reality)','Vagas por fábrica (edite conforme a situação atual)'],
- 'fac.help':['＋／－で「募集定員」「現在の在籍人数」を変更できます。「編集」から勤務地・勤務体制・社宅・性別/年齢条件も変えられます。<b>性別・年齢の条件を入れると、マッチング結果に反映</b>されます。変更はこの端末に自動保存されます。',
-             'Use ＋/− to change "Capacity" and "Placed now". "Edit" lets you change location, shifts, housing and gender/age conditions. <b>Gender and age conditions are reflected in the matching results.</b> Changes are saved automatically on this device.',
-             'Use ＋/− para alterar "Vagas totais" e "Em atividade". Em "Editar" você muda local, turnos, moradia e condições de sexo/idade. <b>As condições de sexo e idade são refletidas na seleção.</b> As alterações são salvas automaticamente neste aparelho.'],
- 'fac.add':['＋ 工場を追加','+ Add factory','+ Adicionar fábrica'],
- 'fac.reset':['初期データに戻す','Reset to default data','Restaurar dados iniciais'],
- 'fac.edit':['✏ 編集','✏ Edit','✏ Editar'],
- 'fac.save':['保存','Save','Salvar'],
- 'fac.delete':['この工場を削除','Delete this factory','Excluir esta fábrica'],
- 'fac.name':['工場名','Factory name','Nome da fábrica'],
- 'fac.locs':['勤務地（「,」区切り／例：小牧市,一宮市）','Locations (comma-separated, e.g. Komaki, Ichinomiya)','Locais (separados por vírgula, ex.: Komaki, Ichinomiya)'],
- 'fac.shifts':['勤務体制','Shifts','Turnos'],
- 'fac.house':['社宅','Housing','Moradia'],
- 'fac.gender':['性別傾向','Gender tendency','Tendência de sexo'],
- 'fac.agemin':['年齢 下限','Min. age','Idade mín.'],
- 'fac.agemax':['年齢 上限','Max. age','Idade máx.'],
- 'fac.none':['なし','none','nenhum'],
- 'fac.newname':['新しい工場','New factory','Nova fábrica'],
- 'fac.confdel':['「{n}」を削除しますか？','Delete "{n}"?','Excluir "{n}"?'],
- 'fac.confreset':['工場データを初期状態に戻します（在籍人数・編集内容もリセット）。よろしいですか？','Reset all factory data to defaults (including placed counts and edits). Continue?','Restaurar os dados das fábricas ao padrão (inclusive contagens e edições). Continuar?'],
- 'fac.unknown':['距離計算ができない勤務地があります：{x}\n（マッチングでは「距離は要確認」扱いになります）','Distance can\'t be calculated for: {x}\n(Matching will show "Distance to be confirmed".)','Não é possível calcular a distância para: {x}\n(A seleção mostrará "Distância a confirmar".)'],
-
- /* applicants list */
- 'list.title':['登録済みの応募者（{n}名）','Registered applicants ({n})','Candidatos registrados ({n})'],
- 'list.copy':['📋 全件コピー（スプレッドシートに貼り付け）','📋 Copy all (paste into spreadsheet)','📋 Copiar tudo (colar na planilha)'],
- 'list.csv':['⬇ CSVでダウンロード','⬇ Download CSV','⬇ Baixar CSV'],
- 'list.note':['※ 出力（コピー／CSV／スプレッドシート）の列名と値は、管理しやすいよう常に日本語です。','* Exported data (copy / CSV / spreadsheet) always uses Japanese column names and values for consistency.','* Os dados exportados (cópia / CSV / planilha) usam sempre nomes de colunas e valores em japonês, para manter a consistência.'],
- 'list.empty':['まだ登録がありません。','No registrations yet.','Nenhum registro ainda.'],
- 'list.nodata':['登録がありません。','Nothing registered.','Nada registrado.'],
- 'list.placed':['決定：{f}','Placed: {f}','Definido: {f}'],
- 'list.unplaced':['未決定','Not placed','Sem definição'],
- 'list.load':['入力欄に読み込む','Load into form','Carregar no formulário'],
- 'list.undo':['決定を取消','Undo placement','Desfazer definição'],
- 'list.del':['削除','Delete','Excluir'],
- 'list.confdel':['{n} さんを削除しますか？','Delete {n}?','Excluir {n}?'],
- 'list.confdel2':['\n（{f} の在籍人数も−1します）','\n(The placed count of {f} will also decrease by 1.)','\n(A contagem de {f} também diminuirá em 1.)'],
- 'csv.done':['CSVをダウンロードしました。','CSV downloaded.','CSV baixado.'],
- 'copy.done':['コピーしました。スプレッドシートのA1セルに貼り付けてください。','Copied. Paste it into cell A1 of your spreadsheet.','Copiado. Cole na célula A1 da planilha.'],
- 'copy.fail':['コピーに失敗しました。','Copy failed.','Falha ao copiar.'],
- 'copy.code':['コードをコピーしました。','Code copied.','Código copiado.'],
-
- /* sheet settings */
- 'sheet.title':['⚙ スプレッドシート自動連携（Googleスプレッドシート）','⚙ Spreadsheet auto-sync (Google Sheets)','⚙ Sincronização automática (Planilhas Google)'],
- 'sheet.intro':['下の手順で設定すると、「登録」ボタンを押すだけでスプレッドシートに自動で1行追加されます（未設定でも、コピー／CSVで利用できます）。','After setup, pressing "Register" automatically adds one row to your spreadsheet. (Without setup, you can still use Copy / CSV.)','Após a configuração, ao tocar em "Registrar" uma linha é adicionada automaticamente à planilha. (Sem configurar, você ainda pode usar Copiar / CSV.)'],
- 'sheet.steps':['設定手順を見る','Show setup steps','Ver passos de configuração'],
- 'sheet.s1':['Googleスプレッドシートを新規作成 →「拡張機能」→「Apps Script」を開く','Create a new Google Sheet → "Extensions" → "Apps Script"','Crie uma nova Planilha Google → "Extensões" → "Apps Script"'],
- 'sheet.s2':['下のコードを全部コピーして貼り付け、保存','Copy all of the code below, paste it in, and save','Copie todo o código abaixo, cole e salve'],
- 'sheet.s3':['右上「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」<br>実行ユーザー：<b>自分</b> ／ アクセスできるユーザー：<b>全員</b> → デプロイ','"Deploy" → "New deployment" → type "Web app"<br>Execute as: <b>Me</b> / Who has access: <b>Anyone</b> → Deploy','"Implantar" → "Nova implantação" → tipo "App da Web"<br>Executar como: <b>Eu</b> / Quem tem acesso: <b>Qualquer pessoa</b> → Implantar'],
- 'sheet.s4':['表示された「ウェブアプリのURL」を下の欄に貼り付けて「保存」','Paste the "Web app URL" shown into the field below and press Save','Cole o "URL do app da Web" no campo abaixo e toque em Salvar'],
- 'sheet.copycode':['コードをコピー','Copy code','Copiar código'],
- 'sheet.url':['ウェブアプリURL','Web app URL','URL do app da Web'],
- 'sheet.saveurl':['URLを保存','Save URL','Salvar URL'],
- 'sheet.test':['テスト送信（ダミー1行）','Send test (1 dummy row)','Enviar teste (1 linha fictícia)'],
- 'sheet.saved':['URLを保存しました。','URL saved.','URL salva.'],
- 'sheet.cleared':['連携を解除しました。','Sync disabled.','Sincronização desativada.'],
- 'sheet.needurl':['先にURLを保存してください。','Please save the URL first.','Salve a URL primeiro.'],
- 'sheet.testok':['テスト送信しました。スプレッドシートに「テスト太郎」が追加されているか確認してください（追加されない場合はデプロイ設定「全員」を確認）。','Test sent. Check that a row "テスト太郎" appeared in the sheet (if not, check that access is set to "Anyone").','Teste enviado. Verifique se a linha "テスト太郎" apareceu na planilha (se não, confira se o acesso está como "Qualquer pessoa").'],
- 'sheet.testfail':['送信に失敗しました。','Sending failed.','Falha no envio.']
-};
-let lang = (() => { try { const v = localStorage.getItem('lang'); if (LANGS.includes(v)) return v; } catch(e){}
-  const n = (navigator.language || 'ja').slice(0,2); return LANGS.includes(n) ? n : 'ja'; })();
-
-function t(k, p){
-  const e = I18N[k];
-  let s = e ? (e[LANGS.indexOf(lang)] || e[0]) : k;
-  if (p) s = s.replace(/\{(\w+)\}/g, (m, x) => (p[x] !== undefined ? p[x] : m));
-  return s;
+function updateWarn(){
+  const w = [], ua = navigator.userAgent || '';
+  if (/Line\/|FBAN|FBAV|Instagram|MicroMessenger|Messenger/i.test(ua)) w.push(t('inapp.warn'));
+  let ok = true; try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); } catch(e){ ok = false; }
+  if (!ok) w.push(t('storage.warn'));
+  const el = $('warn-msg'); el.style.display = w.length ? 'block' : 'none'; el.textContent = w.join(' ');
 }
-const tv = v => I18N['v.'+v] ? t('v.'+v) : v;                   // 値の表示用
-const cityLabel = c => I18N['c.'+c] ? t('c.'+c) : c;             // 市区町村の表示用
-const resLabel = v => v === 'その他' ? t('v.res.その他') : cityLabel(v);
-
-function applyStatic(){
-  document.documentElement.lang = lang;
-  document.title = t('app.title').replace(/^📋\s*/, '');
-  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
-  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
-  $('lang-select').value = lang;
-}
-
-/* =========================================================
-   基本データ
-   ========================================================= */
-const CITY = {
-  '稲沢市':[35.2486,136.7806], '一宮市':[35.3047,136.8031], '小牧市':[35.2911,136.9119],
-  '北名古屋市':[35.2506,136.8656], '名古屋市':[35.1815,136.9066], '清須市':[35.2342,136.8546],
-  '春日井市':[35.2478,136.9722], '岩倉市':[35.2778,136.8708], '江南市':[35.3331,136.8683],
-  '犬山市':[35.3783,136.9444], '津島市':[35.1769,136.7414], 'あま市':[35.1992,136.8000],
-  '愛西市':[35.1700,136.7200], '弥富市':[35.1100,136.7200], '岐阜市':[35.4233,136.7606],
-  '羽島市':[35.3172,136.7014], '各務原市':[35.3989,136.8483], '大口町':[35.3300,136.9000],
-  '扶桑町':[35.3300,136.9400], '豊田市':[35.0828,137.1564], '岡崎市':[34.9547,137.1745],
-  '和歌山県':[34.2306,135.1708]
-};
-// 入力された都市名（日本語/英語/ポルトガル語）を内部の日本語名に戻す
-const CITY_REVERSE = {};
-Object.keys(CITY).forEach(c => LANGS.forEach((_, i) => { const n = I18N['c.'+c][i]; CITY_REVERSE[n.toLowerCase()] = c; }));
-const normCity = s => CITY_REVERSE[s.trim().toLowerCase()] || s.trim();
-
-const FACTORY_VERSION = 'v1';
-const DEFAULT_FACTORIES = [
-  {name:'中部抵抗器（本社）',   wants:['weld'], locations:['稲沢市'],           shifts:['昼勤','夜勤'], housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:3},
-  {name:'中部抵抗器（西之町）', wants:['weld'], locations:['稲沢市'],           shifts:['昼勤','夜勤'], housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:10, current:8},
-  {name:'中部抵抗器（和歌山）', wants:['weld'], locations:['和歌山県'],         shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:2},
-  {name:'シーエルシー',         locations:['北名古屋市'],       shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:8,  current:4},
-  {name:'大橋鉄工',             locations:['小牧市'],           shifts:['昼勤'],        housing:'記載なし', gender:'不問', ageMin:null, ageMax:null, capacity:6,  current:3},
-  {name:'マルイ工業',           locations:['稲沢市'],           shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:2},
-  {name:'ジャパン工業',         locations:['稲沢市'],           shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:4},
-  {name:'矢田工業所',           locations:['稲沢市'],           shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:6,  current:3},
-  {name:'東陽物流',             wants:['reach'], locations:['小牧市'],           shifts:['昼勤','夜勤'], housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:8,  current:5},
-  {name:'名豊興運',             wants:['truck'], boost:12, locations:['小牧市','一宮市'],  shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:2},
-  {name:'サムトランスポート',   locations:['小牧市'],           shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:3},
-  {name:'小川産業',             locations:['名古屋市'],         shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:4,  current:2},
-  {name:'千代化工',             locations:['一宮市'],           shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:6,  current:4},
-  {name:'リバース',             locations:['小牧市'],           shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:1}
-].map((f,i)=>({id:'f'+(i+1), wants:[], boost:0, maleCap:0, maleCur:0, femCap:0, femCur:0, ...f}));
-
-/* =========================================================
-   保存・読み込み
-   ========================================================= */
-const LS = {
-  get(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } },
-  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
-};
-let factories = LS.get('factories_'+FACTORY_VERSION, null) || JSON.parse(JSON.stringify(DEFAULT_FACTORIES));
-// 以前に保存したデータに「募集中の資格(wants)」が無い場合は初期値から補う
-(function(){
-  const dw = {}; DEFAULT_FACTORIES.forEach(f => dw[f.name] = f.wants || []);
-  let ch = false;
-  factories.forEach(f => { if (!Array.isArray(f.wants)){ f.wants = dw[f.name] || []; ch = true; } });
-  // 助成枠・男性枠・優先度の項目を補う
-  const dd = {}; DEFAULT_FACTORIES.forEach(f => dd[f.name] = f);
-  factories.forEach(f => {
-    if ('subCap' in f || 'subCur' in f){            // 旧「助成枠」の数値は女性枠に引き継ぐ
-      if (typeof f.femCap !== 'number'){ f.femCap = f.subCap || 0; f.femCur = f.subCur || 0; }
-      delete f.subCap; delete f.subCur; ch = true;
-    }
-    ['maleCap','maleCur','femCap','femCur'].forEach(k => { if (typeof f[k] !== 'number'){ f[k] = 0; ch = true; } });
-    if (typeof f.boost !== 'number'){ f.boost = (dd[f.name] && dd[f.name].boost) || 0; ch = true; }
-  });
-  // 一度だけ：中部抵抗器は溶接資格者を優先
-  if (!LS.get('migr_v2', false)){
-    factories.forEach(f => { if (/^中部抵抗器/.test(f.name) && !(f.wants || []).includes('weld')){ f.wants = [...(f.wants || []), 'weld']; } });
-    LS.set('migr_v2', true); ch = true;
-  }
-  if (ch) LS.set('factories_'+FACTORY_VERSION, factories);
-})();
-let applicants = LS.get('applicants', []);
-applicants.forEach(a => { if ('usedSub' in a || 'subsidy' in a){ a.usedFem = !!a.usedFem || (!!a.usedSub && a.gender === '女性'); delete a.usedSub; delete a.subsidy; } });
-let sheetUrl = LS.get('sheetUrl', '');
-let curId = null;
-
-const saveFactories = () => LS.set('factories_'+FACTORY_VERSION, factories);
-const saveApplicants = () => LS.set('applicants', applicants);
-const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-/* =========================================================
-   タブ
-   ========================================================= */
-function activeTab(){ return document.querySelector('.tab.active').id; }
-document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
-  document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-  b.classList.add('active'); $(b.dataset.tab).classList.add('active');
-  if (b.dataset.tab === 'tab-factory') renderFactoryAdmin();
-  if (b.dataset.tab === 'tab-list') renderApplicants();
-}));
-
-/* =========================================================
-   フォーム
-   ========================================================= */
-function initSelects(){
-  const rv = $('f-residence').value, wv = $('f-wish').value;
-  $('f-residence').innerHTML = `<option value="">${esc(t('sel.choose'))}</option>`
-    + Object.keys(CITY).map(c => `<option value="${esc(c)}">${esc(cityLabel(c))}</option>`).join('')
-    + `<option value="その他">${esc(t('v.res.その他'))}</option>`;
-  $('f-wish').innerHTML = `<option value="どこでも">${esc(t('v.どこでも'))}</option>`
-    + [...new Set(factories.flatMap(f => f.locations))].map(c => `<option value="${esc(c)}">${esc(cityLabel(c))}</option>`).join('');
-  $('f-residence').value = rv || ''; $('f-wish').value = wv || 'どこでも';
-  if ($('f-wish').value !== (wv || 'どこでも')) $('f-wish').value = 'どこでも';
-}
-function bindChips(){
-  document.querySelectorAll('.chips').forEach(g => {
-    const refresh = () => g.querySelectorAll('label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
-    g.addEventListener('change', refresh); refresh(); g._refresh = refresh;
-  });
-  // フォークリフト／リーチリフトの連動
-  const fk = document.querySelector('input[name=qual][value=forklift]'), rc = $('f-reach');
-  const all = () => document.querySelectorAll('.chips').forEach(g => g._refresh());
-  $('chips-quals').addEventListener('change', () => { if (!fk.checked) rc.checked = false; all(); });
-  $('chips-reach').addEventListener('change', () => { if (rc.checked) fk.checked = true; all(); });
-}
-const radio = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value || '';
-
-function readForm(){
-  return {
-    name: $('f-name').value.trim(), kana: $('f-kana').value.trim(),
-    age: parseInt($('f-age').value, 10) || null, phone: $('f-phone').value.trim(),
-    gender: radio('gender'), residence: $('f-residence').value,
-    shift: radio('shift') || 'どちらでも', housing: radio('housing') || 'どちらでも',
-    wishLocation: $('f-wish').value || 'どこでも', memo: $('f-memo').value.trim(),
-    quals: [...document.querySelectorAll('input[name=qual]:checked')].map(x => x.value), reach: $('f-reach').checked
-  };
-}
-function validate(a){
-  const miss = [];
-  if (!a.name) miss.push(t('f.name'));
-  if (!a.age) miss.push(t('f.age'));
-  if (!a.gender) miss.push(t('f.gender'));
-  if (!a.residence) miss.push(t('f.residence'));
-  return miss;
-}
-function showMsg(id, type, text){ const m = $(id); m.className = 'msg ' + type; m.textContent = text; }
-function clearMsg(id){ $(id).className = 'msg'; $(id).textContent = ''; }
-
-/* =========================================================
-   マッチングロジック（理由は [key, params] で保持し、表示時に翻訳）
-   ========================================================= */
-function km(a, b){
-  const R = 6371, rad = x => x * Math.PI / 180;
-  const dLat = rad(b[0]-a[0]), dLng = rad(b[1]-a[1]);
-  const h = Math.sin(dLat/2)**2 + Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLng/2)**2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
-function distanceTo(f, residence){
-  if (residence === 'その他') return 999;
-  const from = CITY[residence];
-  if (!from) return null;
-  const ds = f.locations.map(l => CITY[l]).filter(Boolean).map(p => km(from, p));
-  return ds.length ? Math.min(...ds) : null;
-}
-const qualList = a => { const l = (a.quals || []).map(k => t('q.'+k)); if (a.reach) l.push(t('q.reach')); return l; };
-const maleRem = f => Math.max(0, (f.maleCap || 0) - (f.maleCur || 0));
-const femRem  = f => Math.max(0, (f.femCap  || 0) - (f.femCur  || 0));
-// 男性枠・女性枠は「その性別専用」。他の性別の人が使えるのは 総残り − 他性別の専用残り
-function slotBlock(f, gender){
-  const rem = Math.max(0, f.capacity - f.current);
-  if (rem <= 0) return null;                       // 満員は別判定
-  const mR = gender !== '男性' ? maleRem(f) : 0, fR = gender !== '女性' ? femRem(f) : 0;
-  if (rem - mR - fR > 0) return null;
-  return mR > 0 && fR > 0 ? 'ng.reserved' : (fR > 0 ? 'ng.femaleonly' : 'ng.maleonly');
-}
-const slotExtra = f => {
-  const parts = [];
-  if (f.maleCap > 0) parts.push(`<div class="status-item"><span>🚹 ${t('slot.male')}</span><strong>${maleRem(f)}/${f.maleCap}</strong></div>`);
-  if (f.femCap  > 0) parts.push(`<div class="status-item"><span>🚺 ${t('slot.female')}</span><strong>${femRem(f)}/${f.femCap}</strong></div>`);
-  return parts.length ? `<div class="status-box" style="margin-top:6px">${parts.join('')}</div>` : '';
-};
-const remainingOf = f => Math.max(0, f.capacity - f.current);
-const ageRangeText = f => t('age.range', { a: f.ageMin || '', b: f.ageMax || '' });
-
-function evaluate(f, a){
-  const ok = [], warn = [], ng = [];
-  let s = 40;
-  const rem = remainingOf(f);
-
-  if (rem <= 0) ng.push(['ng.full']);
-  else { s += Math.min(rem, 5) * 2; ok.push(['r.slots', {n:rem}]); }
-
-  // 男性枠・女性枠：総枠のうち性別専用。該当しない性別は「総残り − 専用残り」の枠だけ使える
-  if (rem > 0){
-    const blk = slotBlock(f, a.gender);
-    if (blk) ng.push([blk]);
-    else if (a.gender === '男性' && maleRem(f) > 0){ s += 8; ok.push(['r.maleslot', {n:maleRem(f)}]); }
-    else if (a.gender === '女性' && femRem(f) > 0){ s += 8; ok.push(['r.femaleslot', {n:femRem(f)}]); }
-  }
-
-  if (f.ageMin && a.age < f.ageMin) ng.push(['ng.agemin', {n:f.ageMin}]);
-  else if (f.ageMax && a.age > f.ageMax) ng.push(['ng.agemax', {n:f.ageMax}]);
-  else if (f.ageMin || f.ageMax){ s += 8; ok.push(['r.ageok', {r:ageRangeText(f)}]); }
-  else s += 4;
-
-  if (f.gender === '男性推奨'){
-    if (a.gender === '男性'){ s += 10; ok.push(['r.male']); } else { s -= 18; warn.push(['w.maleWork']); }
-  } else if (f.gender === '女性推奨'){
-    if (a.gender === '女性'){ s += 10; ok.push(['r.female']); } else { s -= 18; warn.push(['w.femaleWork']); }
-  } else s += 4;
-
-  const hasDay = f.shifts.includes('昼勤'), hasNight = f.shifts.includes('夜勤');
-  if (a.shift === '昼勤のみ'){ if (hasDay){ s += 14; ok.push(['r.day']); } else ng.push(['ng.noday']); }
-  else if (a.shift === '夜勤のみ'){ if (hasNight){ s += 14; ok.push(['r.night']); } else ng.push(['ng.nonight']); }
-  else { s += hasDay && hasNight ? 8 : 4; ok.push(['r.shifts', {s: f.shifts.map(tv).join(' / ')}]); }
-
-  const d = distanceTo(f, a.residence);
-  const hasHouse = f.housing === 'あり';
-  const dk = d === null ? 0 : Math.round(d);
-  if (d === null) warn.push(['w.dist']);
-  else if (d <= 6){ s += 25; ok.push(['r.near', {n:dk}]); }
-  else if (d <= 15){ s += 18; ok.push(['r.zone', {n:dk}]); }
-  else if (d <= 25){ s += 8; ok.push(['r.car', {n:dk}]); }
-  else if (d <= 40){ s -= 2; warn.push(['w.far', {n:dk}]); }
-  else {
-    if (hasHouse){ s += 6; warn.push(['w.farhouse']); } else ng.push(['ng.far']);
-  }
-
-  if (a.housing === '必要'){
-    if (hasHouse){ s += 12; ok.push(['r.house']); }
-    else if (f.housing === '記載なし'){ s -= 5; warn.push(['w.houseq']); }
-    else ng.push(['ng.nohouse']);
-  } else if (a.housing === 'どちらでも' && hasHouse){ s += 2; }
-
-  if (a.wishLocation && a.wishLocation !== 'どこでも'){
-    if (f.locations.includes(a.wishLocation)){ s += 18; ok.push(['r.wish']); } else s -= 6;
-  }
-
-  // 募集中の資格・経験を持っていれば大きく加点（マッチング上位へ）
-  const BONUS = { car:8, forklift:15, truck:30, weld:25 };
-  const has = k => (a.quals || []).includes(k);
-  (f.wants || []).forEach(w => {
-    if (w === 'reach'){
-      if (a.reach){ s += 30; ok.unshift(['r.want', {q:t('q.reach')}]); }
-      else if (has('forklift')){ s += 8; warn.unshift(['r.reachq']); }
-    } else if (has(w)){ s += BONUS[w] || 10; ok.unshift(['r.want', {q:t('q.'+w)}]); }
-  });
-
-  if (f.boost){ s += f.boost; ok.unshift(['r.boost']); }   // 優先して紹介したい工場
-
-  const raw = Math.round(s);                       // 並び替え用（上限なし）
-  s = Math.max(0, Math.min(100, raw));
-  return { f, score:s, raw, ok, warn, ng, rem, dist:d };
-}
-function matchAll(a){
-  const all = factories.map(f => evaluate(f, a));
-  return {
-    good: all.filter(r => !r.ng.length).sort((x,y) => y.raw - x.raw),
-    out:  all.filter(r =>  r.ng.length).sort((x,y) => y.raw - x.raw)
-  };
-}
-const R = r => t(r[0], r[1]);
-function adminSlotRow(icon, label, hint, pre, cap, cur){
-  const rem = Math.max(0, cap - cur);
-  return `<div class="small" style="margin:10px 0 2px"><b>${icon} ${label}</b>（${hint}）</div>
-  <div class="status-box">
-    <div class="status-item"><span>${t('s.cap')}</span><div class="stepper"><button data-act="${pre}cap-">−</button><strong>${cap}</strong><button data-act="${pre}cap+">＋</button></div></div>
-    <div class="status-item"><span>${t('s.cur')}</span><div class="stepper"><button data-act="${pre}cur-">−</button><strong>${cur}</strong><button data-act="${pre}cur+">＋</button></div></div>
-    <div class="status-item"><span>${t('s.rem')}</span><strong class="remaining ${rem===0?'zero':''}">${rem}</strong></div>
-  </div>`;
-}
-
-/* =========================================================
-   マッチ結果の表示
-   ========================================================= */
-function gradeOf(sc){ return sc >= 75 ? ['great', t('grade.great')] : sc >= 55 ? ['good', t('grade.good')] : ['fair', t('grade.fair')]; }
-
-function factoryInfoTable(f){
-  const age = (f.ageMin||f.ageMax) ? ageRangeText(f) : tv('不問');
-  return `<table class="info-table">
-    <tr><td class="label">${t('i.loc')}</td><td>${esc(f.locations.map(cityLabel).join(' / '))}</td></tr>
-    <tr><td class="label">${t('i.shift')}</td><td>${esc(f.shifts.map(tv).join(' / '))}</td></tr>
-    <tr><td class="label">${t('i.house')}</td><td>${esc(tv(f.housing))}</td></tr>
-    <tr><td class="label">${t('i.target')}</td><td>${esc(t('i.targetval', {age, gender: tv(f.gender)}))}</td></tr>
-    ${(f.wants && f.wants.length) ? `<tr><td class="label">${t('i.want')}</td><td>⭐ ${esc(f.wants.map(k => t('q.'+k)).join(' / '))}</td></tr>` : ''}
-  </table>`;
-}
-function statusBox(f){
-  const rem = remainingOf(f);
-  return `<div class="status-box">
-    <div class="status-item"><span>${t('s.cap')}</span><strong>${t('n.people',{n:f.capacity})}</strong></div>
-    <div class="status-item"><span>${t('s.cur')}</span><strong>${t('n.people',{n:f.current})}</strong></div>
-    <div class="status-item"><span>${t('s.rem')}</span><strong class="remaining ${rem===0?'zero':''}">${t('n.people',{n:rem})}</strong></div>
-  </div>`;
-}
-const curApplicant = () => applicants.find(x => x.id === curId);
-
-function renderMatch(a){
-  const { good, out } = matchAll(a);
-  const assigned = curApplicant() ? curApplicant().assigned : '';
-  let html = `<div class="box"><h2>${esc(t('match.title', {name: a.name || t('match.thisperson'), n: good.length}))}</h2>
-    <div class="small">${esc(t('match.sum', {res: resLabel(a.residence), age: a.age, gender: tv(a.gender), shift: tv(a.shift), housing: tv(a.housing)}))}</div>
-    ${qualList(a).length ? `<div class="small">${esc(t('match.quals',{q: qualList(a).join(' / ')}))}</div>` : ''}</div>`;
-
-  if (!good.length) html += `<div class="box">${esc(t('match.none'))}</div>`;
-
-  good.forEach((r, i) => {
-    const [cls, label] = gradeOf(r.score);
-    const isMine = assigned === r.f.name;
-    html += `<div class="factory-card s-${cls}">
-      <div class="factory-name"><span>${i+1}. 🏢 ${esc(r.f.name)}</span><span class="badge ${cls}">${esc(label)} ${esc(t('pts',{n:r.score}))}</span></div>
-      <div class="bar"><div style="width:${r.score}%"></div></div>
-      ${factoryInfoTable(r.f)}
-      <div class="reasons">
-        ${r.ok.map(x => `<div class="ok">✔ ${esc(R(x))}</div>`).join('')}
-        ${r.warn.map(x => `<div class="warn">⚠ ${esc(R(x))}</div>`).join('')}
-      </div>
-      ${statusBox(r.f)}${slotExtra(r.f)}
-      <div class="card-actions">
-        ${isMine
-          ? `<button class="btn btn-sub btn-sm" disabled>${t('btn.decided')}</button>`
-          : `<button class="btn btn-green btn-sm" data-decide="${r.f.id}">${t('btn.decide')}</button>`}
-      </div>
-    </div>`;
-  });
-
-  if (out.length){
-    html += `<div class="box"><details><summary>${esc(t('excluded',{n:out.length}))}</summary>` +
-      out.map(r => `<div class="app-item"><div class="nm">${esc(r.f.name)}</div>
-        <div class="reasons">${r.ng.map(x => `<div class="ng">✖ ${esc(R(x))}</div>`).join('')}</div></div>`).join('') +
-      `</details></div>`;
-  }
-  $('match-area').innerHTML = html;
-  $('match-area').dataset.shown = '1';
-  $('match-area').querySelectorAll('[data-decide]').forEach(b => b.addEventListener('click', () => decide(b.dataset.decide)));
-}
-
-/* =========================================================
-   応募者の登録・決定
-   ========================================================= */
-function topNames(a){ return matchAll(a).good.slice(0,3).map(r => r.f.name).join(' / '); }
-function upsertApplicant(a, assignedName, extra){
-  const now = new Date().toLocaleString('ja-JP');
-  let rec = curApplicant();
-  if (!rec){
-    curId = 'A' + Date.now();
-    rec = { id:curId, createdAt:now, assigned:'' };
-    applicants.unshift(rec);
-  }
-  Object.assign(rec, a, { top: topNames(a) });
-  if (assignedName !== undefined) rec.assigned = assignedName;
-  if (extra) Object.assign(rec, extra);
-  saveApplicants();
-  return rec;
-}
-async function sendToSheet(rec){
-  if (!sheetUrl) return 'none';
-  try {
-    await fetch(sheetUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(exportRec(rec)) });
-    return 'sent';
-  } catch(e){ return 'error'; }
-}
-const sendResultText = (r, rec) => t(r === 'sent' ? 'm.sent' : r === 'none' ? 'm.none' : 'm.error', {name: rec.name});
-
-$('btn-register').addEventListener('click', async () => {
-  const a = readForm(), miss = validate(a);
-  if (miss.length){ showMsg('msg-form','err', t('m.miss',{x: miss.join(', ')})); return; }
-  const rec = upsertApplicant(a);
-  const r = await sendToSheet(rec);
-  showMsg('msg-form', r === 'error' ? 'err' : 'ok', sendResultText(r, rec));
-  renderApplicants();
-});
-$('btn-match').addEventListener('click', () => {
-  const a = readForm();
-  if (!a.age || !a.gender || !a.residence){ showMsg('msg-form','err', t('m.need3')); return; }
-  clearMsg('msg-form');
-  renderMatch(a);
-  $('match-area').scrollIntoView({behavior:'smooth', block:'start'});
-});
-
-async function decide(fid){
-  const a = readForm(), miss = validate(a);
-  if (miss.length){ showMsg('msg-form','err', t('m.needdecide',{x: miss.join(', ')})); window.scrollTo({top:0,behavior:'smooth'}); return; }
-  const f = factories.find(x => x.id === fid);
-  if (!f || remainingOf(f) <= 0){ showMsg('msg-form','err', t('m.full')); return; }
-  const blk = slotBlock(f, a.gender);
-  if (blk){ showMsg('msg-form','err', t(blk)); return; }
-  const prev = curApplicant();
-  if (prev) releaseSlot(prev);
-  f.current++;
-  const usedMale = a.gender === '男性' && f.maleCap > 0 && maleRem(f) > 0;
-  const usedFem  = a.gender === '女性' && f.femCap > 0 && femRem(f) > 0;
-  if (usedMale) f.maleCur++;
-  if (usedFem) f.femCur++;
-  saveFactories();
-  const rec = upsertApplicant(a, f.name, { usedMale, usedFem });
-  const r = await sendToSheet(rec);
-  showMsg('msg-form', r === 'error' ? 'err' : 'ok', t('m.decided',{f:f.name, c:f.current, cap:f.capacity}) + sendResultText(r, rec));
-  renderMatch(a);
-  renderApplicants();
-  window.scrollTo({top:0, behavior:'smooth'});
-}
-
-$('btn-clear').addEventListener('click', () => {
-  ['f-name','f-kana','f-age','f-phone','f-memo'].forEach(id => $(id).value = '');
-  $('f-residence').value = ''; $('f-wish').value = 'どこでも';
-  document.querySelectorAll('input[name=gender]').forEach(r => r.checked = false);
-  document.querySelector('input[name=shift][value="どちらでも"]').checked = true;
-  document.querySelector('input[name=housing][value="どちらでも"]').checked = true;
-  document.querySelectorAll('input[name=qual]').forEach(x => x.checked = false); $('f-reach').checked = false;
-  document.querySelectorAll('.chips').forEach(g => g._refresh());
-  curId = null; $('match-area').innerHTML = ''; delete $('match-area').dataset.shown; clearMsg('msg-form');
-  window.scrollTo({top:0, behavior:'smooth'});
-});
-
-/* =========================================================
-   工場の枠 管理
-   ========================================================= */
-function renderFactoryAdmin(){
-  const list = $('factory-admin');
-  list.innerHTML = factories.map(f => {
-    const rem = remainingOf(f);
-    const opt = (vals, cur) => vals.map(o => `<option value="${o}" ${cur===o?'selected':''}>${esc(tv(o))}</option>`).join('');
-    return `<div class="factory-card ${rem===0?'full':''}" data-fid="${f.id}">
-      <div class="factory-name"><span>🏢 ${esc(f.name)}</span>${rem===0?`<span class="badge">${t('full')}</span>`:''}</div>
-      ${factoryInfoTable(f)}
-      <div class="status-box">
-        <div class="status-item"><span>${t('s.cap')}</span>
-          <div class="stepper"><button data-act="cap-">−</button><strong>${f.capacity}</strong><button data-act="cap+">＋</button></div></div>
-        <div class="status-item"><span>${t('s.cur')}</span>
-          <div class="stepper"><button data-act="cur-">−</button><strong>${f.current}</strong><button data-act="cur+">＋</button></div></div>
-        <div class="status-item"><span>${t('s.rem')}</span><strong class="remaining ${rem===0?'zero':''}">${t('n.people',{n:rem})}</strong></div>
-      </div>
-      ${adminSlotRow('🚹', t('slot.male'), t('slot.maleHint'), 'm', f.maleCap || 0, f.maleCur || 0)}
-      ${adminSlotRow('🚺', t('slot.female'), t('slot.femaleHint'), 'f', f.femCap || 0, f.femCur || 0)}
-      <div class="card-actions"><button class="btn btn-sub btn-sm" data-act="edit">${t('fac.edit')}</button></div>
-      <div class="edit-panel" id="edit-${f.id}">
-        <div class="field"><label>${t('fac.name')}</label><input type="text" data-k="name" value="${esc(f.name)}"></div>
-        <div class="field"><label>${t('fac.locs')}</label><input type="text" data-k="locations" value="${esc(f.locations.map(cityLabel).join(', '))}"></div>
-        <div class="field"><label>${t('fac.shifts')}</label>
-          <div class="check-line">
-            <label><input type="checkbox" data-k="day" ${f.shifts.includes('昼勤')?'checked':''}>${t('v.昼勤')}</label>
-            <label><input type="checkbox" data-k="night" ${f.shifts.includes('夜勤')?'checked':''}>${t('v.夜勤')}</label>
-          </div></div>
-        <div class="row2">
-          <div class="field"><label>${t('fac.house')}</label><select data-k="housing">${opt(['あり','なし','記載なし'], f.housing)}</select></div>
-          <div class="field"><label>${t('fac.gender')}</label><select data-k="gender">${opt(['不問','男性推奨','女性推奨'], f.gender)}</select></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>${t('fac.agemin')}</label><input type="number" data-k="ageMin" value="${f.ageMin ?? ''}" placeholder="${esc(t('fac.none'))}"></div>
-          <div class="field"><label>${t('fac.agemax')}</label><input type="number" data-k="ageMax" value="${f.ageMax ?? ''}" placeholder="${esc(t('fac.none'))}"></div>
-        </div>
-        <div class="field"><label>${t('fac.wants')}</label>
-          <div class="check-line" style="flex-wrap:wrap">${['car','forklift','reach','truck','weld'].map(k => `<label><input type="checkbox" data-w="${k}" ${(f.wants||[]).includes(k)?'checked':''}>${t('q.'+k)}</label>`).join('')}</div></div>
-        <div class="field"><label>${t('fac.boost')}</label><input type="number" data-k="boost" min="0" max="30" value="${f.boost || 0}"></div>
-        <div class="card-actions">
-          <button class="btn btn-main btn-sm" data-act="save">${t('fac.save')}</button>
-          <button class="btn btn-red btn-sm" data-act="delete">${t('fac.delete')}</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  list.querySelectorAll('.factory-card').forEach(card => {
-    const f = factories.find(x => x.id === card.dataset.fid);
-    card.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', () => {
-      const act = btn.dataset.act;
-      if (act === 'cap+') f.capacity++;
-      else if (act === 'cap-') f.capacity = Math.max(0, f.capacity - 1);
-      else if (act === 'cur+') f.current++;
-      else if (act === 'cur-') f.current = Math.max(0, f.current - 1);
-      else if (/^[mf](cap|cur)[+-]$/.test(act)){
-        const key = {mcap:'maleCap', mcur:'maleCur', fcap:'femCap', fcur:'femCur'}[act.slice(0,4)];
-        f[key] = Math.max(0, (f[key] || 0) + (act.endsWith('+') ? 1 : -1));
-      }
-      else if (act === 'edit'){ $('edit-'+f.id).classList.toggle('open'); return; }
-      else if (act === 'save'){ saveEdit(f, card); }
-      else if (act === 'delete'){
-        if (!confirm(t('fac.confdel',{n:f.name}))) return;
-        factories = factories.filter(x => x.id !== f.id);
-      }
-      saveFactories(); initSelects(); renderFactoryAdmin();
-    }));
-  });
-}
-function saveEdit(f, card){
-  const g = k => card.querySelector(`[data-k=${k}]`);
-  const num = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
-  f.name = g('name').value.trim() || f.name;
-  f.locations = g('locations').value.split(/[,、，・]+/).map(normCity).filter(Boolean);
-  f.shifts = [g('day').checked && '昼勤', g('night').checked && '夜勤'].filter(Boolean);
-  if (!f.shifts.length) f.shifts = ['昼勤'];
-  f.housing = g('housing').value; f.gender = g('gender').value;
-  f.ageMin = num(g('ageMin').value); f.ageMax = num(g('ageMax').value);
-  f.wants = [...card.querySelectorAll('[data-w]:checked')].map(x => x.dataset.w);
-  f.boost = Math.max(0, Math.min(30, num(g('boost').value) || 0));
-  const unknown = f.locations.filter(l => !CITY[l]);
-  if (unknown.length) alert(t('fac.unknown',{x: unknown.join(', ')}));
-}
-$('btn-add-factory').addEventListener('click', () => {
-  factories.push({ id:'f'+Date.now(), name:t('fac.newname'), locations:['稲沢市'], shifts:['昼勤'], housing:'記載なし', gender:'不問', ageMin:null, ageMax:null, wants:[], boost:0, maleCap:0, maleCur:0, femCap:0, femCur:0, capacity:5, current:0 });
-  saveFactories(); initSelects(); renderFactoryAdmin();
-  const cards = document.querySelectorAll('#factory-admin .factory-card');
-  const last = cards[cards.length-1]; last.querySelector('.edit-panel').classList.add('open'); last.scrollIntoView({behavior:'smooth'});
-});
-$('btn-reset-factory').addEventListener('click', () => {
-  if (!confirm(t('fac.confreset'))) return;
-  factories = JSON.parse(JSON.stringify(DEFAULT_FACTORIES));
-  saveFactories(); initSelects(); renderFactoryAdmin();
-});
-
-/* =========================================================
-   応募者一覧・出力（出力は常に日本語の列名・値）
-   ========================================================= */
-const COLS = [
-  ['id','ID'],['createdAt','登録日時'],['name','名前'],['kana','フリガナ'],['age','年齢'],['gender','性別'],
-  ['residence','在住地'],['phone','電話'],['shift','希望勤務体制'],['housing','社宅希望'],
-  ['wishLocation','希望勤務地'],['qualsText','保有資格'],['reachText','リーチリフト経験'],['memo','メモ'],['assigned','決定先'],['top','おすすめ上位']
-];
-const QJA = { car:'自動車免許', forklift:'フォークリフト', truck:'中型（4t）トラック', weld:'溶接' };
-const exportRec = a => ({ ...a, qualsText: (a.quals || []).map(k => QJA[k] || k).join('・'), reachText: a.reach ? 'あり' : '' });
-function renderApplicants(){
-  $('list-title').textContent = t('list.title',{n:applicants.length});
-  $('app-list').innerHTML = applicants.length ? applicants.map(a => `
-    <div class="app-item">
-      <div><span class="nm">${esc(a.name)}</span>
-        <span class="tag ${a.assigned?'':'none'}">${esc(a.assigned ? t('list.placed',{f:a.assigned}) : t('list.unplaced'))}</span></div>
-      <div class="sub">${esc(t('match.sum',{res:resLabel(a.residence), age:a.age, gender:tv(a.gender), shift:tv(a.shift), housing:tv(a.housing)}))}</div>
-      ${qualList(a).length ? `<div class="sub">🎓 ${esc(qualList(a).join(' / '))}</div>` : ''}
-      ${a.phone ? `<div class="sub">☎ ${esc(a.phone)}</div>` : ''}
-      ${a.memo ? `<div class="sub">📝 ${esc(a.memo)}</div>` : ''}
-      <div class="sub">${esc(a.createdAt)}</div>
-      <div class="card-actions">
-        <button class="btn btn-sub btn-sm" data-edit="${a.id}">${t('list.load')}</button>
-        ${a.assigned ? `<button class="btn btn-sub btn-sm" data-undo="${a.id}">${t('list.undo')}</button>` : ''}
-        <button class="btn btn-red btn-sm" data-del="${a.id}">${t('list.del')}</button>
-      </div>
-    </div>`).join('') : `<div class="small">${esc(t('list.empty'))}</div>`;
-
-  $('app-list').querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
-    const a = applicants.find(x => x.id === b.dataset.del);
-    if (!confirm(t('list.confdel',{n:a.name}) + (a.assigned ? t('list.confdel2',{f:a.assigned}) : ''))) return;
-    releaseSlot(a);
-    applicants = applicants.filter(x => x.id !== a.id); if (curId === a.id) curId = null;
-    saveApplicants(); saveFactories(); renderApplicants();
-  }));
-  $('app-list').querySelectorAll('[data-undo]').forEach(b => b.addEventListener('click', async () => {
-    const a = applicants.find(x => x.id === b.dataset.undo);
-    releaseSlot(a); a.assigned = '';
-    saveApplicants(); saveFactories(); renderApplicants();
-    await sendToSheet(a);
-  }));
-  $('app-list').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => loadToForm(b.dataset.edit)));
-}
-function releaseSlot(a){
-  if (!a.assigned) return;
-  const f = factories.find(x => x.name === a.assigned);
-  if (f){
-    if (f.current > 0) f.current--;
-    if (a.usedMale && f.maleCur > 0) f.maleCur--;
-    if (a.usedFem && f.femCur > 0) f.femCur--;
-  }
-  a.usedMale = false; a.usedFem = false;
-}
-function loadToForm(id){
-  const a = applicants.find(x => x.id === id); if (!a) return;
-  curId = id;
-  $('f-name').value = a.name; $('f-kana').value = a.kana || ''; $('f-age').value = a.age; $('f-phone').value = a.phone || '';
-  $('f-residence').value = a.residence; $('f-wish').value = a.wishLocation || 'どこでも'; $('f-memo').value = a.memo || '';
-  ['gender','shift','housing'].forEach(k => { const r = document.querySelector(`input[name=${k}][value="${a[k]}"]`); if (r) r.checked = true; });
-  document.querySelectorAll('input[name=qual]').forEach(x => x.checked = (a.quals || []).includes(x.value)); $('f-reach').checked = !!a.reach;
-  document.querySelectorAll('.chips').forEach(g => g._refresh());
-  document.querySelector('[data-tab=tab-input]').click();
-  renderMatch(readForm()); window.scrollTo({top:0});
-}
-
-const cell = v => String(v ?? '');
-function toCSV(){
-  const q = v => '"' + cell(v).replace(/"/g, '""') + '"';
-  return [COLS.map(c => q(c[1])).join(',')].concat(applicants.slice().reverse().map(a => COLS.map(c => q(exportRec(a)[c[0]])).join(','))).join('\r\n');
-}
-function toTSV(){
-  const x = v => cell(v).replace(/[\t\r\n]+/g, ' ');
-  return [COLS.map(c => c[1]).join('\t')].concat(applicants.slice().reverse().map(a => COLS.map(c => x(exportRec(a)[c[0]])).join('\t'))).join('\n');
-}
-$('btn-csv').addEventListener('click', () => {
-  if (!applicants.length){ showMsg('msg-list','err', t('list.nodata')); return; }
-  const blob = new Blob(['\uFEFF' + toCSV()], { type:'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob), a = document.createElement('a');
-  a.href = url; a.download = 'applicants_' + new Date().toISOString().slice(0,10) + '.csv'; a.click(); URL.revokeObjectURL(url);
-  showMsg('msg-list','ok', t('csv.done'));
-});
-async function copyText(text, msgId, okKey){
-  try { await navigator.clipboard.writeText(text); showMsg(msgId,'ok', t(okKey)); }
-  catch(e){
-    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); showMsg(msgId,'ok', t(okKey)); } catch(e2){ showMsg(msgId,'err', t('copy.fail')); }
-    ta.remove();
-  }
-}
-$('btn-copy').addEventListener('click', () => {
-  if (!applicants.length){ showMsg('msg-list','err', t('list.nodata')); return; }
-  copyText(toTSV(), 'msg-list', 'copy.done');
-});
-
-/* =========================================================
-   スプレッドシート連携設定
-   ========================================================= */
-const GAS_CODE = [
-"const HEAD = " + JSON.stringify(COLS.map(c => c[1])) + ";",
-"",
-"function doPost(e) {",
-"  const d = JSON.parse(e.postData.contents);",
-"  const ss = SpreadsheetApp.getActiveSpreadsheet();",
-"  const sh = ss.getSheetByName('応募者') || ss.insertSheet('応募者');",
-"  if (sh.getLastRow() === 0) sh.appendRow(HEAD);",
-"  const row = [d.id, d.createdAt, d.name, d.kana, d.age, d.gender,",
-"    d.residence, \"'\" + (d.phone || ''), d.shift, d.housing,",
-"    d.wishLocation, d.qualsText, d.reachText, d.memo, d.assigned, d.top];",
-"  // Overwrite the row if the same ID exists, otherwise append",
-"  const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getValues().flat();",
-"  const i = ids.indexOf(d.id);",
-"  if (i > 0) sh.getRange(i + 1, 1, 1, row.length).setValues([row]);",
-"  else sh.appendRow(row);",
-"  return ContentService.createTextOutput('ok');",
-"}"
-].join('\n');
-$('gas-code').textContent = GAS_CODE;
-$('btn-copy-gas').addEventListener('click', () => copyText(GAS_CODE, 'msg-url', 'copy.code'));
-$('f-sheet-url').value = sheetUrl;
-$('btn-save-url').addEventListener('click', () => {
-  sheetUrl = $('f-sheet-url').value.trim(); LS.set('sheetUrl', sheetUrl);
-  showMsg('msg-url', 'ok', t(sheetUrl ? 'sheet.saved' : 'sheet.cleared'));
-});
-$('btn-test-url').addEventListener('click', async () => {
-  if (!sheetUrl){ showMsg('msg-url','err', t('sheet.needurl')); return; }
-  const dummy = { id:'TEST'+Date.now(), createdAt:new Date().toLocaleString('ja-JP'), name:'テスト太郎', kana:'テスト', age:30, gender:'男性',
-    residence:'稲沢市', phone:'000-0000-0000', shift:'どちらでも', housing:'どちらでも', wishLocation:'どこでも', memo:'テスト送信', assigned:'', top:'' };
-  const r = await sendToSheet(dummy);
-  showMsg('msg-url', r === 'sent' ? 'info' : 'err', t(r === 'sent' ? 'sheet.testok' : 'sheet.testfail'));
-});
-
-/* =========================================================
-   言語切替・起動
-   ========================================================= */
-function setLang(l){
-  lang = l;
-  try { localStorage.setItem('lang', l); } catch(e){}
-  applyStatic(); initSelects();
-  ['msg-form','msg-list','msg-url'].forEach(clearMsg);
-  renderApplicants();
-  if (activeTab() === 'tab-factory') renderFactoryAdmin();
-  if ($('match-area').dataset.shown){
-    const a = readForm();
-    if (a.age && a.gender && a.residence) renderMatch(a);
-  }
-}
-$('lang-select').addEventListener('change', e => setLang(e.target.value));
-
-applyStatic(); initSelects(); bindChips(); renderApplicants();
+applyStatic(); initSelects(); bindForm(); bindSearch(); renderApplicants(); syncCards(); updateWarn();
+(function(){ var bm = $('boot-msg'); if (bm) bm.style.display = 'none'; })();
 </script>
 </body>
 </html>
