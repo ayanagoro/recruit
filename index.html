@@ -4,7 +4,1891 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Applicant Matching & Slot Management</title>
+<style><!DOCTYPE html>
+<html lang="ja" translate="no" class="notranslate">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="google" content="notranslate">
+<script>
+/* 画面サイズ判定（描画前に実行）：自動＝幅900px以上でPC表示、未満でスマホ表示。手動切替の設定があればそれを優先 */
+(function(){var v;try{var p=JSON.parse(localStorage.getItem('viewPref')||'"auto"');v=(p==='pc'||p==='mobile')?p:(innerWidth>=900?'pc':'mobile');}catch(e){v=innerWidth>=900?'pc':'mobile';}document.documentElement.className+=' v-'+v;})();
+</script>
+<title>Applicant Matching & Slot Management</title>
 <style>
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust:100%; }
+  body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; background:#f4f6f9; color:#222; margin:0;
+         padding:10px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
+  button, label { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+
+  /* ===== 画面の「幅」だけで自動調整（端末判定に頼らない） ===== */
+  .container { width:100%; max-width:1180px; margin:0 auto; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 4px; flex-wrap:wrap; }
+  h1 { font-size:clamp(.95rem, 2.4vw, 1.3rem); color:#1e3a8a; margin:0; flex:1 1 220px; }
+  #lang-select, #view-select { width:auto; padding:6px 8px; font-size:.9rem; border:1px solid #94a3b8; border-radius:6px; background:#fff; }
+  h2 { font-size:1rem; color:#1e3a8a; margin:0 0 10px; }
+
+  .tabs { display:flex; gap:4px; margin:8px 0 12px; position:sticky; top:0; z-index:20; background:#f4f6f9; padding-top:6px; }
+  .tab-btn { flex:1; padding:12px 4px; border:none; border-radius:8px 8px 0 0; background:#dbe3f3; color:#1e3a8a; font-weight:bold; font-size:clamp(.75rem, 2vw, .95rem); cursor:pointer; }
+  .tab-btn.active { background:#1e3a8a; color:#fff; }
+  .tab { display:none; }
+  .tab.active { display:block; }
+  /* 幅が足りれば2列、足りなければ1列に自動で切り替わる */
+  #tab-input.active, #tab-list.active, #tab-search.active { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 430px), 1fr)); gap:16px; align-items:start; }
+  #factory-admin { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap:12px; align-items:start; }
+  #factory-admin .factory-card { margin-bottom:0; }
+  #match-area { min-width:0; }
+
+  .box { background:#fff; padding:clamp(12px, 2.5vw, 20px); border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.1); margin-bottom:15px; min-width:0; }
+  #tab-input.active > .box, #tab-list.active > .box, #tab-search.active > .box { margin-bottom:0; }
+  a.btn { text-decoration:none; text-align:center; }
+  .cand-card { border-left-color:#7c3aed; }
+  .cand-card.s-great { border-left-color:#16a34a; }
+
+  /* ===== 面接フォーム ===== */
+  .form-head { display:flex; justify-content:space-between; align-items:flex-end; gap:8px; flex-wrap:wrap; border-bottom:2px solid #1a3a5f; margin-bottom:10px; padding-bottom:8px; }
+  .form-head h2 { text-transform:uppercase; font-size:1.2rem; margin:0; color:#1a3a5f; }
+  .head-date { font-size:.9rem; font-weight:bold; }
+  .section-title { background:#f1f3f5; padding:5px 10px; border-left:4px solid #1a3a5f; font-weight:bold; font-size:.8rem; margin:14px 0 8px; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .jp-label { font-size:.72rem; color:#555; font-weight:normal; }
+  .g { display:grid; gap:10px; grid-template-columns:repeat(auto-fit, minmax(min(100%, 150px), 1fr)); margin-bottom:10px; }
+  .g.w2 { grid-template-columns:repeat(auto-fit, minmax(min(100%, 230px), 1fr)); }
+  .field { display:flex; flex-direction:column; min-width:0; margin-bottom:0; }
+  .field > label.t { font-weight:bold; font-size:.82rem; margin-bottom:4px; }
+  .req { color:#dc2626; font-size:.75rem; margin-left:4px; }
+  input[type=text], input[type=tel], input[type=number], input[type=time], select, textarea {
+    width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; font-size:1rem; background:#fff; font-family:inherit; min-width:0; }
+  textarea { min-height:90px; resize:vertical; }
+  .opts { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .option-card { display:flex; align-items:center; gap:6px; font-size:.88rem; cursor:pointer; border:1px solid #cbd5e1; padding:8px 10px; border-radius:6px; background:#fff; font-weight:normal; margin:0; }
+  .option-card input { width:18px; height:18px; margin:0; flex:none; }
+  .option-card:has(input:checked) { background:#e0e7ff; border-color:#1e3a8a; font-weight:bold; }
+  .opts input[type=text] { flex:1 1 140px; width:auto; }
+  .sub-opt { margin:6px 0 0 18px; }
+  .footer-note { background:#fff5f5; border:1px solid #fab1a0; color:#c0392b; padding:8px; margin-top:14px; border-radius:4px; font-size:.82rem; text-align:center; line-height:1.6; }
+  .hint { font-size:.76rem; color:#64748b; margin-top:3px; min-height:1em; }
+  .hint.warn { color:#b45309; }
+  .hint.ok { color:#166534; }
+
+  .btn { display:block; width:100%; padding:13px; border:none; border-radius:6px; font-size:1rem; font-weight:bold; cursor:pointer; margin-top:8px; }
+  .btn-main { background:#1e3a8a; color:#fff; }
+  .btn-green { background:#059669; color:#fff; }
+  .btn-sub { background:#e2e8f0; color:#334155; }
+  .btn-gray { background:#636e72; color:#fff; }
+  .btn-sm { display:inline-block; width:auto; padding:8px 12px; font-size:.82rem; margin:0; }
+  .btn-red { background:#fee2e2; color:#b91c1c; }
+  .btn:hover { filter:brightness(1.07); }
+  .btn-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap:8px; margin-top:12px; }
+  .btn-row .btn { margin-top:0; }
+  .msg { font-size:.85rem; margin-top:8px; padding:8px 10px; border-radius:6px; display:none; }
+  .msg.ok { display:block; background:#dcfce7; color:#166534; }
+  .msg.err { display:block; background:#fee2e2; color:#991b1b; }
+  .msg.info { display:block; background:#e0f2fe; color:#075985; }
+
+  /* ===== 工場カード ===== */
+  .factory-card { background:#fff; padding:14px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.1); margin-bottom:12px; border-left:5px solid #2563eb; min-width:0; }
+  .factory-card.full { border-left-color:#9ca3af; opacity:.85; }
+  .factory-card.s-great { border-left-color:#16a34a; }
+  .factory-card.s-good { border-left-color:#2563eb; }
+  .factory-card.s-fair { border-left-color:#f59e0b; }
+  .factory-name { font-size:1.05rem; font-weight:bold; color:#1e3a8a; margin:0 0 8px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .badge { font-size:.78rem; padding:3px 8px; border-radius:12px; background:#e0e7ff; color:#1e3a8a; white-space:nowrap; }
+  .badge.great { background:#dcfce7; color:#166534; }
+  .badge.fair { background:#fef3c7; color:#92400e; }
+  .info-table { width:100%; border-collapse:collapse; margin-bottom:8px; }
+  .info-table td { padding:3px 0; font-size:.88rem; vertical-align:top; }
+  .info-table td.label { width:7.2em; color:#666; font-weight:bold; }
+  .reasons { font-size:.82rem; margin:6px 0 8px; line-height:1.6; }
+  .reasons .ok { color:#166534; }
+  .reasons .warn { color:#b45309; }
+  .reasons .ng { color:#b91c1c; }
+  .bar { height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; margin:2px 0 6px; }
+  .bar > div { height:100%; background:#2563eb; }
+
+  .status-box { background:#f8fafc; border:1px solid #e2e8f0; padding:8px; border-radius:6px; display:flex; justify-content:space-between; align-items:stretch; gap:4px; }
+  .status-item { text-align:center; flex:1; }
+  .status-item span { display:block; font-size:.72rem; color:#64748b; }
+  .status-item strong { font-size:1.15rem; color:#334155; }
+  .status-item strong.remaining { color:#dc2626; font-size:1.35rem; }
+  .status-item strong.remaining.zero { color:#6b7280; }
+  .stepper { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:2px; }
+  .stepper button { width:36px; height:36px; border-radius:50%; border:1px solid #cbd5e1; background:#fff; font-size:1.1rem; cursor:pointer; line-height:1; }
+  .card-actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .edit-panel { display:none; background:#f8fafc; border:1px dashed #94a3b8; border-radius:6px; padding:10px; margin-top:8px; }
+  .edit-panel.open { display:block; }
+  .edit-panel .field { margin-bottom:8px; }
+  .edit-panel input, .edit-panel select { padding:8px; font-size:.95rem; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .check-line { display:flex; gap:12px; font-size:.9rem; flex-wrap:wrap; }
+  .check-line label { display:flex; align-items:center; gap:4px; font-weight:normal; }
+  .check-line input { width:auto; }
+
+  .app-item { border-bottom:1px solid #e5e7eb; padding:10px 0; font-size:.88rem; }
+  .app-item:last-child { border-bottom:none; }
+  .app-item .nm { font-weight:bold; font-size:.98rem; }
+  .app-item .sub { color:#64748b; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.75rem; background:#dcfce7; color:#166534; margin-left:6px; }
+  .tag.none { background:#f1f5f9; color:#64748b; }
+  details summary { cursor:pointer; font-weight:bold; font-size:.9rem; color:#1e3a8a; padding:4px 0; }
+  pre.code { background:#0f172a; color:#e2e8f0; padding:10px; border-radius:6px; font-size:.72rem; overflow-x:auto; white-space:pre; max-height:260px; }
+  .small { font-size:.8rem; color:#64748b; line-height:1.6; }
+
+  /* ===== 表示サイズ：PC表示／スマホ表示（自動判定。右上のボタンで手動切替も可） ===== */
+  .tab-btn { display:flex; align-items:center; justify-content:center; gap:6px; }
+  .badge.st-good { background:#ede9fe; color:#5b21b6; }
+  .badge.st-closed { background:#e5e7eb; color:#4b5563; }
+  html.v-pc { font-size:17px; }
+  html.v-mobile { font-size:16px; }
+
+  /* --- スマホ表示：1列・下にタブバー・大きな操作ボタン --- */
+  html.v-mobile body { padding-bottom:calc(86px + env(safe-area-inset-bottom)); }
+  html.v-mobile .container { max-width:560px; }
+  html.v-mobile #tab-input.active, html.v-mobile #tab-list.active, html.v-mobile #tab-search.active, html.v-mobile #factory-admin { grid-template-columns:minmax(0,1fr); }
+  html.v-mobile .tabs { position:fixed; left:0; right:0; bottom:0; top:auto; margin:0; padding:0 0 env(safe-area-inset-bottom); background:#fff; border-top:1px solid #cbd5e1; box-shadow:0 -2px 8px rgba(0,0,0,.12); gap:0; z-index:50; }
+  html.v-mobile .tab-btn { background:#fff; color:#64748b; border-radius:0; padding:8px 2px 7px; font-size:.7rem; flex-direction:column; gap:2px; line-height:1.25; border-top:3px solid transparent; }
+  html.v-mobile .tab-btn .ti { font-size:1.3rem; line-height:1; }
+  html.v-mobile .tab-btn.active { background:#eef2ff; color:#1e3a8a; border-top-color:#1e3a8a; }
+  html.v-mobile input[type=text], html.v-mobile input[type=tel], html.v-mobile input[type=number], html.v-mobile input[type=time], html.v-mobile select, html.v-mobile textarea { font-size:16px !important; }
+  html.v-mobile .btn { padding:14px; }
+  html.v-mobile .btn-sm { padding:10px 12px; }
+  html.v-mobile .card-actions .btn-sm { flex:1 1 auto; text-align:center; }
+  html.v-mobile .stepper button { width:40px; height:40px; }
+  html.v-mobile .info-table td.label { width:7.2em; }
+  html.v-mobile .status-item strong { font-size:1.05rem; }
+
+  /* --- PC表示：横に広く・上にタブ・2〜3列 --- */
+  html.v-pc .container { max-width:1400px; }
+  html.v-pc .tab-btn { font-size:1rem; padding:14px 6px; }
+  html.v-pc #tab-input.active { grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); }
+  html.v-pc #tab-search.active { grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); }
+  html.v-pc #tab-list.active { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+  html.v-pc #factory-admin { grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); }
+  html.v-pc .g { grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); }
+  html.v-pc .g.w2 { grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }
+  html.v-pc #match-area, html.v-pc #search-results { position:sticky; top:70px; max-height:calc(100vh - 90px); overflow-y:auto; }
+  html.v-pc .btn-row { grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); }
+
+  /* ===== 印刷（フォーム部分のみ） ===== */
+  @media print {
+    @page { size:A4; margin:.8cm; }
+    body { background:#fff; padding:0; }
+    .topbar, .tabs, #match-area, .btn-row, #msg-form, .no-print, .tab:not(#tab-input) { display:none !important; }
+    #tab-input.active { display:block !important; }
+    .box { box-shadow:none; padding:0; }
+    .option-card:has(input:checked) { background:#fff; border:2px solid #000; }
+    .section-title { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="topbar">
+    <h1 data-i18n="app.title"></h1>
+    <select id="lang-select" aria-label="Language">
+      <option value="ja">日本語</option>
+      <option value="en">English</option>
+      <option value="pt">Português</option>
+    </select>
+    <select id="view-select" aria-label="View">
+      <option value="auto" data-i18n-txt="view.auto"></option>
+      <option value="pc" data-i18n-txt="view.pc"></option>
+      <option value="mobile" data-i18n-txt="view.mobile"></option>
+    </select>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="tab-input"><span class="ti">📝</span><span data-i18n="tab.input"></span></button>
+    <button class="tab-btn" data-tab="tab-factory"><span class="ti">🏭</span><span data-i18n="tab.factory"></span></button>
+    <button class="tab-btn" data-tab="tab-list"><span class="ti">📋</span><span data-i18n="tab.list"></span></button>
+    <button class="tab-btn" data-tab="tab-search"><span class="ti">🔎</span><span data-i18n="tab.search"></span></button>
+  </div>
+
+  <!-- ===== 1. 面接フォーム + マッチング ===== -->
+  <div id="tab-input" class="tab active">
+    <div class="box">
+      <form id="interview-form" onsubmit="return false" autocomplete="off">
+        <div class="form-head">
+          <div>
+            <h2 data-i18n="form.title"></h2>
+            <div class="jp-label" data-i18n="form.sub"></div>
+          </div>
+          <div class="head-date"><span data-i18n="f.date"></span>: <span id="currentDate"></span></div>
+        </div>
+
+        <!-- 個人情報 -->
+        <div class="section-title"><span data-i18n="sec.personal"></span></div>
+        <div class="g">
+          <div class="field" style="grid-column:1/-1">
+            <label class="t"><span data-i18n="f.name"></span><span class="req" data-i18n="req"></span></label>
+            <input type="text" id="f-name" data-i18n-ph="ph.name" required>
+          </div>
+        </div>
+        <div class="g">
+          <div class="field">
+            <label class="t" data-i18n="f.age"></label>
+            <input type="number" id="f-age" inputmode="numeric" min="15" max="80" data-i18n-ph="ph.age">
+          </div>
+          <div class="field">
+            <label class="t" data-i18n="f.gender"></label>
+            <select id="f-gender">
+              <option value="">--</option>
+              <option value="M" data-i18n-txt="o.M"></option>
+              <option value="F" data-i18n-txt="o.F"></option>
+            </select>
+          </div>
+        </div>
+        <div class="g w2">
+          <div class="field">
+            <label class="t" data-i18n="f.phone"></label>
+            <input type="tel" id="f-phone" placeholder="000-0000-0000">
+          </div>
+          <div class="field">
+            <label class="t" data-i18n="f.apps"></label>
+            <div class="opts">
+              <label class="option-card"><input type="checkbox" name="apps" value="WhatsApp"> WhatsApp</label>
+              <label class="option-card"><input type="checkbox" name="apps" value="LINE"> LINE</label>
+              <label class="option-card"><input type="checkbox" name="apps" value="Messenger"> Messenger</label>
+              <label class="option-card"><input type="checkbox" name="apps" value="Outros"><span data-i18n="o.other"></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="g">
+          <div class="field" style="grid-column:1/-1">
+            <label class="t" data-i18n="f.city"></label>
+            <input type="text" id="f-city" data-i18n-ph="ph.city">
+            <div class="hint" id="city-hint"></div>
+          </div>
+        </div>
+
+        <!-- 能力とロジスティクス -->
+        <div class="section-title"><span data-i18n="sec.skills"></span></div>
+        <div class="g">
+          <div class="field">
+            <label class="t" data-i18n="f.nihongo"></label>
+            <input type="number" id="f-nihongo" inputmode="numeric" min="0" max="100">
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:10px">
+          <label class="t" data-i18n="f.cert"></label>
+          <div class="opts">
+            <label class="option-card"><input type="checkbox" name="cert" value="Empilhadeira"><span data-i18n="o.forklift"></span></label>
+            <label class="option-card"><input type="checkbox" name="cert" value="Caminhão"><span data-i18n="o.truck"></span></label>
+            <label class="option-card"><input type="checkbox" name="cert" value="Solda"><span data-i18n="o.weld"></span></label>
+            <label class="option-card"><input type="checkbox" name="cert" value="Outros"><span data-i18n="o.other"></span>:</label>
+            <input type="text" id="f-certother" data-i18n-ph="ph.certother">
+          </div>
+          <div class="sub-opt"><label class="option-card"><input type="checkbox" id="f-reach"><span data-i18n="q.reachsub"></span></label></div>
+        </div>
+        <div class="field" style="margin-bottom:10px">
+          <label class="t" data-i18n="f.job"></label>
+          <div class="opts">
+            <label class="option-card"><input type="radio" name="job" value="Sim"><span data-i18n="o.yes"></span></label>
+            <label class="option-card"><input type="radio" name="job" value="Não"><span data-i18n="o.no"></span></label>
+            <label class="option-card"><input type="radio" name="job" value="Seguro"><span data-i18n="o.insurance"></span></label>
+          </div>
+        </div>
+        <div class="g w2">
+          <div class="field">
+            <label class="t" data-i18n="f.car"></label>
+            <div class="opts">
+              <label class="option-card"><input type="radio" name="car" value="Sim"><span data-i18n="o.yes"></span></label>
+              <label class="option-card"><input type="radio" name="car" value="Não"><span data-i18n="o.no"></span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label class="t" data-i18n="f.apto"></label>
+            <div class="opts">
+              <label class="option-card"><input type="radio" name="apto" value="Sim"><span data-i18n="o.yes"></span></label>
+              <label class="option-card"><input type="radio" name="apto" value="Não"><span data-i18n="o.no"></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="g">
+          <div class="field" style="grid-column:1/-1">
+            <label class="t" data-i18n="f.filhos"></label>
+            <input type="text" id="f-filhos" data-i18n-ph="ph.filhos">
+          </div>
+        </div>
+
+        <!-- マッチング用の追加項目（任意） -->
+        <div class="section-title"><span data-i18n="sec.extra"></span></div>
+        <div class="g w2">
+          <div class="field">
+            <label class="t" data-i18n="f.shift"></label>
+            <div class="opts">
+              <label class="option-card"><input type="radio" name="shift" value="どちらでも" checked><span data-i18n="v.どちらでも"></span></label>
+              <label class="option-card"><input type="radio" name="shift" value="昼勤のみ"><span data-i18n="v.昼勤のみ"></span></label>
+              <label class="option-card"><input type="radio" name="shift" value="夜勤のみ"><span data-i18n="v.夜勤のみ"></span></label>
+            </div>
+          </div>
+          <div class="field">
+            <label class="t" data-i18n="f.wish"></label>
+            <select id="f-wish"></select>
+          </div>
+        </div>
+
+        <!-- 案件と面接 -->
+        <div class="section-title"><span data-i18n="sec.interview"></span></div>
+        <div class="g">
+          <div class="field"><label class="t" data-i18n="f.idate"></label><input type="text" id="f-idate" placeholder="dd/mm"></div>
+          <div class="field"><label class="t" data-i18n="f.itime"></label><input type="time" id="f-itime"></div>
+          <div class="field"><label class="t" data-i18n="f.wage"></label><input type="text" id="f-wage" placeholder="¥"></div>
+        </div>
+        <div class="g w2">
+          <div class="field"><label class="t" data-i18n="f.vaga"></label><input type="text" id="f-vaga"></div>
+          <div class="field"><label class="t" data-i18n="f.interviewer"></label><input type="text" id="f-interviewer"></div>
+        </div>
+
+        <!-- 備考 -->
+        <div class="section-title"><span data-i18n="sec.notes"></span></div>
+        <textarea id="f-obs" rows="6" data-i18n-ph="ph.obs"></textarea>
+
+        <div class="footer-note" data-i18n="note.card"></div>
+
+        <div class="btn-row">
+          <button type="button" class="btn btn-main" id="btn-match" data-i18n="btn.match"></button>
+          <button type="button" class="btn btn-green" id="btn-register" data-i18n="btn.register"></button>
+          <button type="button" class="btn btn-gray" id="btn-print" data-i18n="btn.print"></button>
+          <button type="button" class="btn btn-sub" id="btn-clear" data-i18n="btn.clear"></button>
+        </div>
+        <div id="msg-form" class="msg"></div>
+      </form>
+    </div>
+
+    <div id="match-area"></div>
+  </div>
+
+  <!-- ===== 2. 工場の枠 ===== -->
+  <div id="tab-factory" class="tab">
+    <div class="box">
+      <h2 data-i18n="fac.title"></h2>
+      <p class="small" style="margin-top:0" data-i18n="fac.help"></p>
+      <div class="btn-row">
+        <button class="btn btn-sub" id="btn-add-factory" data-i18n="fac.add"></button>
+        <button class="btn btn-sub" id="btn-reset-factory" data-i18n="fac.reset"></button>
+      </div>
+    </div>
+    <div id="factory-admin"></div>
+  </div>
+
+  <!-- ===== 3. 応募者一覧 ===== -->
+  <div id="tab-list" class="tab">
+    <div class="box">
+      <h2 id="list-title"></h2>
+      <div class="btn-row">
+        <button class="btn btn-main" id="btn-copy" data-i18n="list.copy"></button>
+        <button class="btn btn-sub" id="btn-csv" data-i18n="list.csv"></button>
+      </div>
+      <p class="small" data-i18n="list.note"></p>
+      <div id="msg-list" class="msg"></div>
+    </div>
+    <div class="box" id="app-list"></div>
+
+    <div class="box">
+      <h2 data-i18n="sheet.title"></h2>
+      <p class="small" style="margin-top:0" data-i18n="sheet.intro"></p>
+      <a class="btn btn-sub" id="sheet-link" target="_blank" rel="noopener" data-i18n="sheet.link"></a>
+      <div class="field" style="margin:10px 0">
+        <label class="t" data-i18n="sheet.mode"></label>
+        <select id="f-sheet-mode">
+          <option value="form" data-i18n-txt="sheet.mode.form"></option>
+          <option value="json" data-i18n-txt="sheet.mode.json"></option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label class="t" data-i18n="sheet.url"></label>
+        <input type="text" id="f-sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-sub" id="btn-save-url" data-i18n="sheet.saveurl"></button>
+        <button class="btn btn-sub" id="btn-test-url" data-i18n="sheet.test"></button>
+      </div>
+      <div id="msg-url" class="msg"></div>
+      <details style="margin-top:12px">
+        <summary data-i18n="sheet.steps"></summary>
+        <ol class="small" style="padding-left:18px">
+          <li data-i18n="sheet.s1"></li>
+          <li data-i18n="sheet.s2"></li>
+          <li data-i18n="sheet.s3"></li>
+          <li data-i18n="sheet.s4"></li>
+          <li data-i18n="sheet.s5"></li>
+        </ol>
+        <pre class="code" id="gas-code"></pre>
+        <button class="btn btn-sub btn-sm" id="btn-copy-gas" data-i18n="sheet.copycode"></button>
+      </details>
+    </div>
+  </div>
+
+  <!-- ===== 4. 人材検索（工場の募集依頼 → ピックアップ） ===== -->
+  <div id="tab-search" class="tab">
+    <div class="box">
+      <h2 data-i18n="search.title"></h2>
+      <div class="small" id="search-source"></div>
+      <button type="button" class="btn btn-sub btn-sm" id="btn-load-remote" style="margin:6px 0 10px" data-i18n="search.load"></button>
+
+      <div class="field" style="margin-bottom:10px">
+        <label class="t" data-i18n="search.factory"></label>
+        <select id="s-factory"></select>
+      </div>
+      <div class="g">
+        <div class="field"><label class="t" data-i18n="search.need"></label><input type="number" id="s-need" min="0" inputmode="numeric"></div>
+        <div class="field"><label class="t" data-i18n="search.gender"></label>
+          <select id="s-gender">
+            <option value="" data-i18n-txt="search.any"></option>
+            <option value="男性" data-i18n-txt="v.男性"></option>
+            <option value="女性" data-i18n-txt="v.女性"></option>
+          </select></div>
+      </div>
+      <div class="g">
+        <div class="field"><label class="t" data-i18n="search.agemin"></label><input type="number" id="s-agemin" min="15" max="80" inputmode="numeric"></div>
+        <div class="field"><label class="t" data-i18n="search.agemax"></label><input type="number" id="s-agemax" min="15" max="80" inputmode="numeric"></div>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label class="t" data-i18n="search.must"></label>
+        <div class="opts">
+          <label class="option-card"><input type="checkbox" name="smust" value="car"><span data-i18n="q.car"></span></label>
+          <label class="option-card"><input type="checkbox" name="smust" value="forklift"><span data-i18n="q.forklift"></span></label>
+          <label class="option-card"><input type="checkbox" name="smust" value="reach"><span data-i18n="q.reach"></span></label>
+          <label class="option-card"><input type="checkbox" name="smust" value="truck"><span data-i18n="q.truck"></span></label>
+          <label class="option-card"><input type="checkbox" name="smust" value="weld"><span data-i18n="q.weld"></span></label>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label class="t" data-i18n="search.prefer"></label>
+        <div class="opts">
+          <label class="option-card"><input type="checkbox" name="sprefer" value="car"><span data-i18n="q.car"></span></label>
+          <label class="option-card"><input type="checkbox" name="sprefer" value="forklift"><span data-i18n="q.forklift"></span></label>
+          <label class="option-card"><input type="checkbox" name="sprefer" value="reach"><span data-i18n="q.reach"></span></label>
+          <label class="option-card"><input type="checkbox" name="sprefer" value="truck"><span data-i18n="q.truck"></span></label>
+          <label class="option-card"><input type="checkbox" name="sprefer" value="weld"><span data-i18n="q.weld"></span></label>
+        </div>
+      </div>
+      <div class="g">
+        <div class="field"><label class="t" data-i18n="search.shift"></label>
+          <select id="s-shift">
+            <option value="" data-i18n-txt="search.any"></option>
+            <option value="昼勤" data-i18n-txt="v.昼勤"></option>
+            <option value="夜勤" data-i18n-txt="v.夜勤"></option>
+          </select></div>
+        <div class="field"><label class="t" data-i18n="search.house"></label>
+          <select id="s-house">
+            <option value="" data-i18n-txt="search.any"></option>
+            <option value="あり" data-i18n-txt="v.あり"></option>
+            <option value="なし" data-i18n-txt="v.なし"></option>
+          </select></div>
+      </div>
+      <div class="g">
+        <div class="field" style="grid-column:1/-1"><label class="t" data-i18n="search.loc"></label><input type="text" id="s-loc" data-i18n-ph="ph.city" autocomplete="off"></div>
+        <div class="field"><label class="t" data-i18n="search.maxkm"></label><input type="number" id="s-km" value="20" min="1" inputmode="numeric"></div>
+        <div class="field"><label class="t" data-i18n="search.minjp"></label><input type="number" id="s-minjp" min="0" max="100" inputmode="numeric"></div>
+      </div>
+      <div class="opts" style="flex-direction:column; align-items:stretch; margin-bottom:6px">
+        <label class="option-card"><input type="checkbox" id="s-car"><span data-i18n="search.carreq"></span></label>
+        <label class="option-card"><input type="checkbox" id="s-idle"><span data-i18n="search.idle"></span></label>
+        <label class="option-card"><input type="checkbox" id="s-excl" checked><span data-i18n="search.exclplaced"></span></label>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-main" id="btn-search" data-i18n="search.run"></button>
+        <button type="button" class="btn btn-sub" id="btn-search-clear" data-i18n="search.reset"></button>
+      </div>
+      <div id="msg-search" class="msg"></div>
+    </div>
+    <div id="search-results"></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   i18n : [日本語, English, Português]
+   フォーム項目は添付フォームと同じく「ポルトガル語 ＋ 日本語」の併記（ポルトガル語表示時）
+   ※ データ内部の値（昼勤・あり 等）は日本語のまま保持し、表示時にだけ翻訳します
+   ========================================================= */
+const LANGS = ['ja','en','pt'];
+const B = (pt, jp, en) => [jp, en, pt + ' <span class="jp-label">' + jp + '</span>'];
+const I18N = {
+ 'app.title':['📋 応募者マッチング＆枠管理（社内用）','📋 Applicant Matching & Slot Management (internal use)','📋 Seleção de Candidatos e Vagas (uso interno)'],
+ 'tab.input':['① 応募者入力','① Applicant','① Candidato'],
+ 'tab.factory':['② 工場の枠','② Factory slots','② Vagas das fábricas'],
+ 'tab.list':['③ 応募者一覧','③ Applicants','③ Candidatos'],
+ 'tab.search':['④ 人材検索','④ Search','④ Busca'],
+ 'req':['必須','Required','Obrigatório'],
+
+ /* フォーム */
+ 'form.title':['面接フォーム','Interview Form','Formulário de Entrevista'],
+ 'form.sub':['電話インタビューフォーム','Phone interview form','電話インタビューフォーム'],
+ 'f.date':['日付','Date','Data'],
+ 'sec.personal':B('DADOS PESSOAIS','個人情報','PERSONAL INFO'),
+ 'sec.skills':B('HABILIDADES E LOGÍSTICA','スキル・生活環境','SKILLS & LIVING SITUATION'),
+ 'sec.extra':B('ADICIONAL PARA SELEÇÃO (opcional)','紹介の参考項目（任意）','EXTRA FOR MATCHING (optional)'),
+ 'sec.interview':B('DETALHES DA VAGA E ENTREVISTA','案件・面接の内容','JOB & INTERVIEW DETAILS'),
+ 'sec.notes':B('COMENTÁRIOS / OBSERVAÇÕES','備考・メモ','NOTES'),
+ 'f.name':B('Nome Completo','氏名','Full name'),
+ 'f.age':B('Idade','年齢','Age'),
+ 'f.gender':B('Gênero','性別','Gender'),
+ 'f.phone':B('Telefone','電話番号','Phone'),
+ 'f.apps':B('Aplicativos de Contato','連絡アプリ','Contact apps'),
+ 'f.city':B('Cidade','お住まい','City of residence'),
+ 'f.nihongo':B('Nihongo %','日本語力（%）','Japanese level %'),
+ 'f.cert':B('Certificação?','資格を持っていますか？','Qualifications?'),
+ 'f.job':B('Trabalhando atualmente?','現在、仕事をしていますか？','Currently working?'),
+ 'f.car':B('Possui carro?','お車はお持ちですか？','Has a car?'),
+ 'f.apto':B('Precisa de Apto?','社宅（寮）は必要ですか？','Needs company housing?'),
+ 'f.filhos':B('Filhos?','お子さんはいますか？','Children?'),
+ 'f.shift':B('Turno preferido','希望勤務体制','Preferred shift'),
+ 'f.wish':B('Local de trabalho desejado','働きたい場所','Preferred work location'),
+ 'f.idate':B('Data Entrevista','面接日','Interview date'),
+ 'f.itime':B('Horário','面接時間','Interview time'),
+ 'f.wage':B('Salário','時給','Hourly wage'),
+ 'f.vaga':B('Vaga Oferecida','紹介する職種','Position offered'),
+ 'f.interviewer':B('Entrevistador','担当者名','Interviewer'),
+ 'o.M':['男性','Male','Masculino (男)'],
+ 'o.F':['女性','Female','Feminino (女)'],
+ 'o.other':B('Outros','その他','Other'),
+ 'o.forklift':B('Empilhadeira','フォークリフト','Forklift'),
+ 'o.truck':B('Caminhão','中型（4t）トラック','Truck'),
+ 'o.weld':B('Solda','溶接','Welding'),
+ 'o.yes':B('Sim','はい','Yes'),
+ 'o.no':B('Não','いいえ','No'),
+ 'o.insurance':B('Seguro Desemprego','失業保険','Unemployment insurance'),
+ 'q.reachsub':['└ フォークリフト：リーチリフトの経験あり','└ Forklift: has reach-lift experience','└ Empilhadeira: tem experiência com reach'],
+ 'ph.name':['例）山田 太郎','e.g. Taro Yamada','ex.: Taro Yamada'],
+ 'ph.age':['例）32','e.g. 32','ex.: 32'],
+ 'ph.city':['例）小牧市','e.g. Komaki / 小牧市','ex.: Komaki / 小牧市'],
+ 'ph.certother':['資格名','Which one?','Qual? (資格名)'],
+ 'ph.filhos':['人数と年齢','Number and ages','Quantidade e Idades (人数と年齢)'],
+ 'ph.obs':['面接メモ','Interview notes','Anote aqui informações relevantes... (面接メモ)'],
+ 'note.card':['<strong>連絡：</strong>在留カードの表と裏の写真を送ってもらってください。','<strong>Reminder:</strong> please ask the applicant to send photos of the residence card (front and back).','<strong>Lembrete:</strong> enviar foto do zaryu card frente e verso por favor.<br><span class="jp-label">在留カードの表裏の写真を送ってください。</span>'],
+ 'btn.match':['🔍 この人に合う工場を探す','🔍 Find factories for this person','🔍 Buscar fábricas para esta pessoa'],
+ 'btn.register':['📤 登録（スプレッドシートへ送信）','📤 Submit (send to spreadsheet)','📤 Enviar (para a planilha)'],
+ 'btn.print':['🖨 印刷','🖨 Print','🖨 Imprimir'],
+ 'btn.clear':['入力を消去（次の方へ）','Clear form (next person)','Limpar (próximo candidato)'],
+ 'city.ok':['→ 「{c}」として認識しました','Recognized as: {c}','Reconhecido como: {c}'],
+ 'city.unknown':['一覧にない市町村です（距離は「要確認」になります）','Not in the list (distance will be "to be confirmed")','Fora da lista (a distância ficará "a confirmar")'],
+
+ /* values */
+ 'v.男性':['男性','Male','Masculino'],
+ 'v.女性':['女性','Female','Feminino'],
+ 'v.その他':['その他','Other','Outro'],
+ 'v.どちらでも':['どちらでも','Either','Tanto faz'],
+ 'v.昼勤のみ':['昼勤のみ','Day shift only','Só turno diurno'],
+ 'v.夜勤のみ':['夜勤のみ','Night shift only','Só turno noturno'],
+ 'v.必要':['必要','Needed','Necessária'],
+ 'v.不要':['不要','Not needed','Não necessária'],
+ 'v.どこでも':['どこでも','Anywhere','Qualquer lugar'],
+ 'v.昼勤':['昼勤','Day','Diurno'],
+ 'v.夜勤':['夜勤','Night','Noturno'],
+ 'v.あり':['あり','Yes','Sim'],
+ 'v.なし':['なし','No','Não'],
+ 'v.記載なし':['記載なし','Not stated','Não informado'],
+ 'v.不問':['指定なし','No restriction','Sem restrição'],
+ 'v.男性推奨':['男性推奨','Men preferred','Preferência masculina'],
+ 'v.女性推奨':['女性推奨','Women preferred','Preferência feminina'],
+ 'v.res.その他':['その他（遠方）','Other (far away)','Outro (distante)'],
+
+ /* qualifications */
+ 'q.car':['自動車免許','Driver\'s license','Carteira de motorista'],
+ 'q.forklift':['フォークリフト','Forklift','Empilhadeira'],
+ 'q.truck':['中型（4t）トラック','Medium (4t) truck','Caminhão médio (4t)'],
+ 'q.weld':['溶接','Welding','Soldagem'],
+ 'q.reach':['リーチリフト経験','Reach-lift experience','Experiência com reach'],
+
+ /* cities */
+ 'c.稲沢市':['稲沢市','Inazawa','Inazawa'],'c.一宮市':['一宮市','Ichinomiya','Ichinomiya'],
+ 'c.小牧市':['小牧市','Komaki','Komaki'],'c.北名古屋市':['北名古屋市','Kitanagoya','Kitanagoya'],
+ 'c.名古屋市':['名古屋市','Nagoya','Nagoya'],'c.清須市':['清須市','Kiyosu','Kiyosu'],
+ 'c.春日井市':['春日井市','Kasugai','Kasugai'],'c.岩倉市':['岩倉市','Iwakura','Iwakura'],
+ 'c.江南市':['江南市','Konan','Konan'],'c.犬山市':['犬山市','Inuyama','Inuyama'],
+ 'c.津島市':['津島市','Tsushima','Tsushima'],'c.あま市':['あま市','Ama','Ama'],
+ 'c.愛西市':['愛西市','Aisai','Aisai'],'c.弥富市':['弥富市','Yatomi','Yatomi'],
+ 'c.岐阜市':['岐阜市','Gifu','Gifu'],'c.羽島市':['羽島市','Hashima','Hashima'],
+ 'c.各務原市':['各務原市','Kakamigahara','Kakamigahara'],'c.大口町':['大口町','Oguchi','Oguchi'],
+ 'c.扶桑町':['扶桑町','Fuso','Fuso'],'c.豊田市':['豊田市','Toyota','Toyota'],
+ 'c.岡崎市':['岡崎市','Okazaki','Okazaki'],'c.和歌山県':['和歌山県','Wakayama (Pref.)','Wakayama (Prov.)'],
+
+ /* match */
+ 'match.title':['🎯 {name} に合う工場（{n}件）','🎯 Factories matching {name} ({n})','🎯 Fábricas compatíveis com {name} ({n})'],
+ 'match.thisperson':['この方','this person','esta pessoa'],
+ 'match.sum':['お住まい：{res} ／ {age} ／ {gender} ／ {shift} ／ 社宅：{housing}','Lives in: {res} / {age} / {gender} / {shift} / Company housing: {housing}','Reside em: {res} / {age} / {gender} / {shift} / Moradia da empresa: {housing}'],
+ 'match.age':['{n}歳','Age {n}','{n} anos'],
+ 'match.quals':['保有資格：{q}','Qualifications: {q}','Qualificações: {q}'],
+ 'match.none':['条件に合う工場がありません。「条件外」の理由を確認するか、②で枠・条件を見直してください。','No factory matches. Check the reasons under "Excluded", or review slots/conditions in tab ②.','Nenhuma fábrica compatível. Veja os motivos em "Excluídas" ou revise as vagas/condições na aba ②.'],
+ 'grade.great':['◎ おすすめ','◎ Excellent','◎ Ótima'],
+ 'grade.good':['○ 合う','○ Good','○ Boa'],
+ 'grade.fair':['△ 要相談','△ Discuss','△ A combinar'],
+ 'pts':['{n}点','{n} pts','{n} pts'],
+ 'excluded':['条件に合わなかった工場（{n}件）','Excluded factories ({n})','Fábricas excluídas ({n})'],
+ 'btn.decide':['✅ この工場に決定（在籍人数 +1）','✅ Place here (+1 placed)','✅ Definir aqui (+1 em atividade)'],
+ 'btn.decided':['✅ 決定済み','✅ Placed','✅ Definido'],
+
+ /* factory info */
+ 'i.loc':['勤務地','Location','Local'],
+ 'i.shift':['勤務体制','Shifts','Turnos'],
+ 'i.house':['社宅','Company housing','Moradia da empresa'],
+ 'i.target':['対象','Eligibility','Perfil aceito'],
+ 'i.want':['募集中の資格','Seeking','Procura'],
+ 'i.targetval':['年齢：{age} / 性別：{gender}','Age: {age} / Gender: {gender}','Idade: {age} / Sexo: {gender}'],
+ 'age.range':['{a}〜{b}歳','{a}–{b} yrs','{a}–{b} anos'],
+ 's.cap':['募集人数','Positions','Total de vagas'],
+ 's.cur':['在籍人数','Currently placed','Funcionários atuais'],
+ 's.rem':['残り人数','Remaining','Vagas restantes'],
+ 'n.people':['{n}名','{n}','{n}'],
+ 'full':['満員','Full','Vagas preenchidas'],
+ 'slot.male':['男性枠','Male slots','Vagas masculinas'],
+ 'slot.female':['女性枠','Female slots','Vagas femininas'],
+ 'slot.maleHint':['総枠のうち男性限定の数','part of the total reserved for men','parte do total reservada a homens'],
+ 'slot.femaleHint':['総枠のうち女性限定の数','part of the total reserved for women','parte do total reservada a mulheres'],
+
+ /* reasons */
+ 'r.slots':['残り {n}名','Remaining: {n}','Vagas restantes: {n}'],
+ 'r.ageok':['年齢条件OK（{r}）','Age requirement met ({r})','Faixa etária OK ({r})'],
+ 'ng.full':['満員（残りなし）','Full (none remaining)','Vagas preenchidas (sem vagas restantes)'],
+ 'ng.agemin':['年齢条件外（{n}歳以上）','Outside age range (min. {n})','Fora da faixa etária (mín. {n})'],
+ 'ng.agemax':['年齢条件外（{n}歳まで）','Outside age range (max. {n})','Fora da faixa etária (máx. {n})'],
+ 'r.male':['男性が活躍中','Men are active here','Homens atuando aqui'],
+ 'r.female':['女性が活躍中','Women are active here','Mulheres atuando aqui'],
+ 'w.maleWork':['男性中心の職場','Mostly male workplace','Ambiente predominantemente masculino'],
+ 'w.femaleWork':['女性中心の職場','Mostly female workplace','Ambiente predominantemente feminino'],
+ 'r.maleslot':['男性枠に空きがあります（残り{n}）','Male slot available ({n} left)','Vaga masculina disponível (restam {n})'],
+ 'r.femaleslot':['女性枠に空きがあります（残り{n}）','Female slot available ({n} left)','Vaga feminina disponível (restam {n})'],
+ 'ng.maleonly':['残り枠は男性専用','Remaining slots are male-only','As vagas restantes são só para homens'],
+ 'ng.femaleonly':['残り枠は女性専用','Remaining slots are female-only','As vagas restantes são só para mulheres'],
+ 'ng.reserved':['残り枠は男性枠・女性枠のみ','Remaining slots are reserved for men/women only','As vagas restantes são reservadas só para homens/mulheres'],
+ 'r.day':['昼勤OK','Day shift available','Turno diurno disponível'],
+ 'r.night':['夜勤OK','Night shift available','Turno noturno disponível'],
+ 'ng.noday':['昼勤なし','No day shift','Sem turno diurno'],
+ 'ng.nonight':['夜勤なし','No night shift','Sem turno noturno'],
+ 'r.shifts':['勤務体制：{s}','Shifts: {s}','Turnos: {s}'],
+ 'r.near':['通勤が近い（約{n}km）','Short commute (approx. {n} km)','Trajeto curto (cerca de {n} km)'],
+ 'r.zone':['通勤圏内（約{n}km）','Within commuting range (approx. {n} km)','Dentro da área de deslocamento (cerca de {n} km)'],
+ 'r.car':['車なら通勤可（約{n}km）','Commutable by car (approx. {n} km)','Acessível de carro (cerca de {n} km)'],
+ 'w.far':['通勤やや遠い（約{n}km）','Somewhat far (approx. {n} km)','Um pouco longe (cerca de {n} km)'],
+ 'w.nocar':['車がなく、通勤が遠い（約{n}km）','No car and a long commute (approx. {n} km)','Sem carro e trajeto longo (cerca de {n} km)'],
+ 'w.farhouse':['遠方：社宅利用が前提','Far away: company housing assumed','Distante: pressupõe moradia da empresa'],
+ 'ng.far':['遠方で社宅なし（通勤困難）','Too far and no housing (hard to commute)','Distante e sem moradia (deslocamento difícil)'],
+ 'w.dist':['距離は要確認','Distance to be confirmed','Distância a confirmar'],
+ 'r.house':['社宅あり','Company housing available','Com moradia da empresa'],
+ 'w.houseq':['社宅は要確認','Housing to be confirmed','Moradia a confirmar'],
+ 'ng.nohouse':['社宅なし','No company housing','Sem moradia da empresa'],
+ 'r.wish':['希望の勤務地','Preferred location','Local desejado'],
+ 'r.want':['募集中の資格あり：{q}','Has a skill they are looking for: {q}','Possui habilidade procurada: {q}'],
+ 'r.reachq':['フォークリフト資格あり（リーチリフト経験は要確認）','Has forklift qualification (reach-lift experience to be confirmed)','Tem qualificação de empilhadeira (experiência com reach a confirmar)'],
+ 'r.boost':['優先して紹介したい工場','Priority factory (preferred for referrals)','Fábrica prioritária (preferida nas indicações)'],
+
+ /* messages */
+ 'm.miss':['未入力：{x}','Missing: {x}','Faltando: {x}'],
+ 'm.need2':['年齢と性別を入力してください（お住まいも入力すると距離で判定できます）。','Please enter age and gender (adding the city lets the system judge distance).','Informe idade e sexo (informar a cidade permite avaliar a distância).'],
+ 'm.needdecide':['決定するには入力が必要です：{x}','Required to confirm placement: {x}','Necessário para definir a vaga: {x}'],
+ 'm.full':['この工場は満員です。','This factory is full.','As vagas desta fábrica estão preenchidas.'],
+ 'm.decided':['{f} に決定しました（在籍 {c}/{cap}）。','Placed at {f} ({c}/{cap}). ','Definido em {f} ({c}/{cap}). '],
+ 'm.sent':['{name} さんをスプレッドシートに送信しました（シートで反映を確認してください）。','{name} was sent to the spreadsheet (please check the sheet).','{name} foi enviado(a) à planilha (confira na planilha).'],
+ 'm.skipped':['{name} さんは端末に保存しました（スプレッドシートには送信済みのため再送していません）。','{name} was saved on this device (not re-sent: already sent to the spreadsheet).','{name} foi salvo(a) neste aparelho (não reenviado: já enviado à planilha).'],
+ 'm.resend':['すでにスプレッドシートへ送信済みです。もう一度送ると行が重複します。送りますか？','Already sent to the spreadsheet. Sending again will duplicate the row. Send anyway?','Já enviado à planilha. Enviar de novo duplicará a linha. Enviar mesmo assim?'],
+ 'm.none':['{name} さんを端末に保存しました（スプレッドシートへの自動送信は③で設定できます。今は「全件コピー」か「CSV」で貼り付けできます）。','{name} was saved on this device. (Set up auto-sync in tab ③. For now use "Copy all" or CSV.)','{name} foi salvo(a) neste aparelho. (Configure a sincronização na aba ③. Por enquanto use "Copiar tudo" ou CSV.)'],
+ 'm.error':['{name} さんを端末に保存しましたが、スプレッドシートへの送信に失敗しました。電波状況やURLを確認してください。','{name} was saved on this device, but sending to the spreadsheet failed. Check your connection and the URL.','{name} foi salvo(a) neste aparelho, mas o envio à planilha falhou. Verifique a conexão e a URL.'],
+
+ /* factory admin */
+ 'fac.title':['工場ごとの人数枠（現状に合わせて編集）','Slots per factory (edit to match reality)','Vagas por fábrica (edite conforme a situação atual)'],
+ 'fac.help':['＋／－で「募集人数」と「在籍人数」を変更できます。「編集」から、勤務地・勤務体制・社宅・性別/年齢の条件なども変更できます。<b>性別・年齢の条件を入れると、マッチング結果に反映されます。</b>変更はこの端末に自動で保存されます。','Use ＋/− to change "Positions" and "Currently placed". "Edit" lets you change location, shifts, company housing and gender/age conditions. <b>Gender and age conditions are reflected in the matching results.</b> Changes are saved automatically on this device.','Use ＋/− para alterar "Total de vagas" e "Funcionários atuais". Em "Editar" você muda local, turnos, moradia da empresa e condições de sexo/idade. <b>As condições de sexo e idade são refletidas na seleção.</b> As alterações são salvas automaticamente neste aparelho.'],
+ 'fac.add':['＋ 工場を追加','+ Add factory','+ Adicionar fábrica'],
+ 'fac.reset':['初期データに戻す','Reset to default data','Restaurar dados iniciais'],
+ 'fac.edit':['✏ 編集','✏ Edit','✏ Editar'],
+ 'fac.save':['保存','Save','Salvar'],
+ 'fac.delete':['この工場を削除','Delete this factory','Excluir esta fábrica'],
+ 'fac.name':['工場名','Factory name','Nome da fábrica'],
+ 'fac.locs':['勤務地（「,」区切り／例：小牧市,一宮市）','Locations (comma-separated, e.g. Komaki, Ichinomiya)','Locais (separados por vírgula, ex.: Komaki, Ichinomiya)'],
+ 'fac.shifts':['勤務体制','Shifts','Turnos'],
+ 'fac.house':['社宅','Company housing','Moradia da empresa'],
+ 'fac.gender':['性別傾向','Gender tendency','Tendência de sexo'],
+ 'fac.agemin':['年齢 下限','Min. age','Idade mín.'],
+ 'fac.agemax':['年齢 上限','Max. age','Idade máx.'],
+ 'fac.none':['なし','none','nenhum'],
+ 'fac.wants':['優先して探している資格・経験（該当者をマッチング上位に）','Preferred qualifications / experience (matching people rank higher)','Qualificações / experiência prioritárias (quem tiver sobe no ranking)'],
+ 'fac.boost':['優先度（0〜30点／全員に上乗せ）','Priority boost (0–30 extra points for everyone)','Prioridade (0–30 pontos extras para todos)'],
+ 'fac.newname':['新しい工場','New factory','Nova fábrica'],
+ 'fac.confdel':['「{n}」を削除しますか？','Delete "{n}"?','Excluir "{n}"?'],
+ 'fac.confreset':['工場データを初期状態に戻します（在籍人数・編集内容もリセット）。よろしいですか？','Reset all factory data to defaults (including placed counts and edits). Continue?','Restaurar os dados das fábricas ao padrão (inclusive contagens e edições). Continuar?'],
+ 'fac.unknown':['距離計算ができない勤務地があります：{x}\n（マッチングでは「距離は要確認」扱いになります）','Distance can\'t be calculated for: {x}\n(Matching will show "Distance to be confirmed".)','Não é possível calcular a distância para: {x}\n(A seleção mostrará "Distância a confirmar".)'],
+
+ /* applicants list */
+ 'list.title':['登録済みの応募者（{n}名）','Registered applicants ({n})','Candidatos registrados ({n})'],
+ 'list.copy':['📋 全件コピー（スプレッドシートに貼り付け）','📋 Copy all (paste into spreadsheet)','📋 Copiar tudo (colar na planilha)'],
+ 'list.csv':['⬇ CSVでダウンロード','⬇ Download CSV','⬇ Baixar CSV'],
+ 'list.note':['※ 出力（コピー／CSV／スプレッドシート新方式）の列名と値は、管理しやすいよう常に日本語です。','* Exported data (copy / CSV / new-script sheet) always uses Japanese column names and values for consistency.','* Os dados exportados (cópia / CSV / planilha do novo script) usam sempre nomes de colunas e valores em japonês, para manter a consistência.'],
+ 'list.empty':['まだ登録がありません。','No registrations yet.','Nenhum registro ainda.'],
+ 'list.nodata':['登録がありません。','Nothing registered.','Nada registrado.'],
+ 'list.placed':['決定：{f}','Placed: {f}','Definido: {f}'],
+ 'list.unplaced':['未決定','Not placed','Sem definição'],
+ 'list.load':['入力欄に読み込む','Load into form','Carregar no formulário'],
+ 'list.undo':['決定を取消','Undo placement','Desfazer definição'],
+ 'list.del':['削除','Delete','Excluir'],
+ 'list.confdel':['{n} さんを削除しますか？','Delete {n}?','Excluir {n}?'],
+ 'list.confdel2':['\n（{f} の在籍人数も−1します）','\n(The placed count of {f} will also decrease by 1.)','\n(A contagem de {f} também diminuirá em 1.)'],
+ 'csv.done':['CSVをダウンロードしました。','CSV downloaded.','CSV baixado.'],
+ 'copy.done':['コピーしました。スプレッドシートのA1セルに貼り付けてください。','Copied. Paste it into cell A1 of your spreadsheet.','Copiado. Cole na célula A1 da planilha.'],
+ 'copy.fail':['コピーに失敗しました。','Copy failed.','Falha ao copiar.'],
+ 'copy.code':['コードをコピーしました。','Code copied.','Código copiado.'],
+
+ /* recruitment status */
+ 'fac.status':['募集状況','Recruitment status','Situação de recrutamento'],
+ 'st.open':['募集中','Recruiting','Recrutando'],
+ 'st.good':['随時（良い人がいれば）','Open to strong candidates','Aberta a bons candidatos'],
+ 'st.closed':['募集なし','Not recruiting','Sem recrutamento'],
+ 'st.goodHint':['今は募集していないが、良い人がいれば受け入れを相談できる工場','Not actively recruiting, but willing to consider a strong candidate','Não está recrutando ativamente, mas aceita avaliar um bom candidato'],
+ 'ng.closed':['現在、募集なし','Not recruiting right now','Sem recrutamento no momento'],
+ 'ng.goodonly':['良い人材のみ検討（募集資格に合わず）','Considers strong candidates only (not a match)','Só avalia candidatos muito bons (não compatível)'],
+ 'r.goodfit':['良い人材として相談できる（募集資格に合致）','Strong candidate — worth proposing','Bom candidato — vale a pena propor'],
+ 'w.goodfull':['人数は埋まっているが、良い人材として相談可','Positions are filled, but can be proposed as a strong candidate','Vagas preenchidas, mas pode ser proposto como bom candidato'],
+ 'view.auto':['表示：自動','View: auto','Exibição: auto'],
+ 'view.pc':['PC表示','Desktop view','Modo computador'],
+ 'view.mobile':['スマホ表示','Phone view','Modo celular'],
+ /* search tab */
+ 'search.title':['工場からの募集依頼 → 登録済みの人をピックアップ','Factory request → pick registered candidates','Pedido da fábrica → selecionar candidatos registrados'],
+ 'search.factory':['依頼元の工場（選ぶと条件が自動入力されます）','Requesting factory (conditions are pre-filled)','Fábrica solicitante (preenche as condições)'],
+ 'search.free':['（指定なし・条件を自分で入力）','(none — enter freely)','(nenhuma — digitar livremente)'],
+ 'search.need':['募集人数','People needed','Pessoas necessárias'],
+ 'search.gender':['性別','Gender','Sexo'],
+ 'search.any':['指定なし','No preference','Sem preferência'],
+ 'search.agemin':['年齢 下限','Min. age','Idade mín.'],
+ 'search.agemax':['年齢 上限','Max. age','Idade máx.'],
+ 'search.must':['必須の資格・経験（持っていない人は表示しない）','Required (people without it are excluded)','Obrigatório (quem não tem é excluído)'],
+ 'search.prefer':['優遇する資格・経験（持っている人を上位に）','Preferred (ranked higher)','Preferido (sobe no ranking)'],
+ 'search.shift':['勤務体制','Shift','Turno'],
+ 'search.house':['社宅','Company housing','Moradia da empresa'],
+ 'search.loc':['勤務地（市町村名を入力）','Work location (type the city)','Local de trabalho (digite a cidade)'],
+ 'search.maxkm':['通勤できる距離の上限（km）','Max commute (km)','Deslocamento máx. (km)'],
+ 'search.minjp':['日本語力 下限（%）','Min. Japanese level (%)','Japonês mínimo (%)'],
+ 'search.carreq':['車を持っている人のみ','Only people with a car','Só quem tem carro'],
+ 'search.idle':['仕事をしていない人を優先','Prefer people not currently working','Priorizar quem não está trabalhando'],
+ 'search.exclplaced':['すでに工場が決まっている人は除く','Exclude people already placed','Excluir quem já foi alocado'],
+ 'search.run':['🔎 条件に合う人をピックアップ','🔎 Pick matching candidates','🔎 Selecionar candidatos'],
+ 'search.reset':['条件をクリア','Clear conditions','Limpar condições'],
+ 'search.source':['データ元：この端末 {a}名 ／ スプレッドシート {b}名','Data: this device {a} / spreadsheet {b}','Dados: este aparelho {a} / planilha {b}'],
+ 'search.load':['🔄 スプレッドシートから最新を読み込む','🔄 Load latest from the spreadsheet','🔄 Carregar da planilha'],
+ 'search.loaded':['スプレッドシートから {n}名を読み込みました。','Loaded {n} people from the spreadsheet.','{n} pessoas carregadas da planilha.'],
+ 'search.loadfail':['読み込みに失敗しました。②の新スクリプトを最新コードで再デプロイしているか、URLを確認してください。','Loading failed. Check that the new script (②) is deployed with the latest code and the URL is correct.','Falha ao carregar. Verifique se o novo script (②) foi implantado com o código mais recente e se a URL está correta.'],
+ 'search.needmode':['スプレッドシートからの読み込みは「②新スクリプト」方式のときに使えます（③で設定）。今はこの端末に登録した人だけを検索します。','Reading from the spreadsheet needs method ② (new script, set up in tab ③). For now only people registered on this device are searched.','A leitura da planilha exige o método ② (novo script, aba ③). Por ora só busca pessoas registradas neste aparelho.'],
+ 'search.found':['該当 {m}名（募集 {n}名）','{m} match (needed: {n})','{m} compatíveis (necessárias: {n})'],
+ 'search.found0':['該当 {m}名','{m} match','{m} compatíveis'],
+ 'search.short':['募集人数に足りません。条件をゆるめると増えます。','Not enough for the number needed. Loosening conditions will add more.','Insuficiente para o número necessário. Flexibilizar as condições aumenta o resultado.'],
+ 'search.none':['条件に合う人がいません。下の「除外された人」で理由を確認し、条件をゆるめてください。','No one matches. Check the reasons under "Excluded" and loosen the conditions.','Ninguém compatível. Veja os motivos em "Excluídos" e flexibilize as condições.'],
+ 'search.locunk':['勤務地が一覧にない市町村のため、距離では絞り込めていません。','The work location is not in the list, so distance is not applied.','O local de trabalho não está na lista; a distância não foi aplicada.'],
+ 'search.excluded':['条件に合わなかった人（{n}名）','Excluded people ({n})','Pessoas excluídas ({n})'],
+ 'search.copy':['📋 結果をコピー','📋 Copy results','📋 Copiar resultado'],
+ 'search.csv':['⬇ CSV','⬇ CSV','⬇ CSV'],
+ 'search.place':['✅ {f} に決定','✅ Place at {f}','✅ Definir em {f}'],
+ 'search.placedto':['決定済み：{f}','Placed: {f}','Definido: {f}'],
+ 'search.src.sheet':['シート','sheet','planilha'],
+ 'search.src.local':['端末','device','aparelho'],
+ 's.near':['住まいが近い（約{n}km）','Lives nearby (approx. {n} km)','Mora perto (cerca de {n} km)'],
+ 's.farhouse':['遠方だが社宅利用なら可（約{n}km）','Far, but OK if using company housing (approx. {n} km)','Longe, mas ok usando moradia da empresa (cerca de {n} km)'],
+ 's.distunk':['住まいの距離は要確認','Distance to be confirmed','Distância a confirmar'],
+ 's.must':['必須の資格あり：{q}','Has the required: {q}','Tem o requisito: {q}'],
+ 's.pref':['優遇資格あり：{q}','Has preferred: {q}','Tem o preferido: {q}'],
+ 's.idle':['現在は仕事をしていない（すぐ動ける）','Not currently working (available)','Não está trabalhando (disponível)'],
+ 's.jp':['日本語力 {n}%','Japanese {n}%','Japonês {n}%'],
+ 's.car':['車あり','Has a car','Tem carro'],
+ 's.hsmatch':['社宅希望で、社宅あり','Wants housing and housing is offered','Quer moradia e há moradia'],
+ 's.ageunk':['年齢が未入力（要確認）','Age not entered (confirm)','Idade não informada (confirmar)'],
+ 's.genunk':['性別が未入力（要確認）','Gender not entered (confirm)','Sexo não informado (confirmar)'],
+ 's.carunk':['車の有無は未入力（要確認）','Car not entered (confirm)','Carro não informado (confirmar)'],
+ 's.jpunk':['日本語力は未入力（要確認）','Japanese level not entered (confirm)','Japonês não informado (confirmar)'],
+ 'x.placed':['すでに決定済み（{f}）','Already placed ({f})','Já alocado(a) ({f})'],
+ 'x.gender':['性別が条件外（{g}のみ）','Gender does not match ({g} only)','Sexo não compatível (só {g})'],
+ 'x.age':['年齢が条件外（{a}歳）','Age out of range ({a})','Idade fora da faixa ({a})'],
+ 'x.must':['必須の資格がない：{q}','Missing required: {q}','Falta o requisito: {q}'],
+ 'x.shift':['希望勤務体制が合わない（{s}）','Preferred shift does not match ({s})','Turno preferido incompatível ({s})'],
+ 'x.dist':['通勤圏外（約{n}km）','Outside commuting range (approx. {n} km)','Fora da área de deslocamento (cerca de {n} km)'],
+ 'x.nohouse':['社宅を希望しているが、社宅なし','Needs housing but none is offered','Precisa de moradia, mas não há'],
+ 'x.car':['車がない','No car','Sem carro'],
+ 'x.jp':['日本語力が下限未満（{n}%）','Japanese below the minimum ({n}%)','Japonês abaixo do mínimo ({n}%)'],
+ 'x.slot':['この工場の枠に入れない（男性枠／女性枠の都合）','Does not fit this factory\'s slots (male/female reservation)','Não cabe nas vagas desta fábrica (reserva masculina/feminina)'],
+ 'yn.Sim':['はい','Yes','Sim'],'yn.Não':['いいえ','No','Não'],'yn.Seguro':['失業保険','Unemployment insurance','Seguro desemprego'],
+ 'd.car':['車','Car','Carro'],'d.apto':['寮','Housing','Moradia'],'d.job':['仕事','Job','Trabalho'],'d.jp':['日本語','Japanese','Japonês'],
+
+ /* sheet settings */
+ 'sheet.title':['⚙ スプレッドシート連携（Googleスプレッドシート）','⚙ Spreadsheet auto-sync (Google Sheets)','⚙ Sincronização automática (Planilhas Google)'],
+ 'sheet.intro':['「登録」を押すとスプレッドシートに1行追加されます。<b>①既存のフォーム用スクリプト</b>は、添付フォームと同じ項目・同じ形式で送信します（今お使いのシートがそのまま使えます。追記のみで、工場の決定先はシートに反映されません）。<b>②新スクリプト</b>は、決定先やおすすめも含め、同じ人の行を更新できます。',
+                '"Submit" adds one row to your spreadsheet. <b>① Existing form script</b> sends the same fields and format as the attached form (your current sheet keeps working; it only appends rows and does not record the placed factory). <b>② New script</b> also records placement/recommendations and updates the same person\'s row.',
+                '"Enviar" adiciona uma linha à planilha. <b>① Script atual do formulário</b> envia os mesmos campos e formato do formulário anexo (sua planilha atual continua funcionando; só adiciona linhas e não registra a fábrica definida). <b>② Novo script</b> também registra a fábrica definida/recomendadas e atualiza a linha da mesma pessoa.'],
+ 'sheet.mode':['送信方式','Send method','Método de envio'],
+ 'sheet.mode.form':['① 既存のフォーム用スクリプト（追記のみ・添付フォームと同じ形式）','① Existing form script (append only, same format as the attached form)','① Script atual do formulário (só adiciona, mesmo formato do formulário anexo)'],
+ 'sheet.mode.json':['② 新スクリプト（行の更新あり・決定先も反映／下のコードを設定）','② New script (updates rows, includes placement — set up the code below)','② Novo script (atualiza linhas, inclui fábrica definida — configure o código abaixo)'],
+ 'sheet.steps':['②新スクリプトの設定手順を見る','Show setup steps for ② new script','Ver passos do ② novo script'],
+ 'sheet.s1':['記録先のスプレッドシートを開く（上のボタン）→「拡張機能」→「Apps Script」','Open the linked spreadsheet (button above) → "Extensions" → "Apps Script"','Abra a planilha vinculada (botão acima) → "Extensões" → "Apps Script"'],
+ 'sheet.s2':['下のコードを全部コピーして貼り付け、保存（コードにこのシートのIDが入っています）','Copy all of the code below, paste it in and save (the code already contains this sheet\'s ID)','Copie todo o código abaixo, cole e salve (o código já contém o ID desta planilha)'],
+ 'sheet.s3':['右上「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」<br>実行ユーザー：<b>自分</b> ／ アクセスできるユーザー：<b>全員</b> → デプロイ','"Deploy" → "New deployment" → type "Web app"<br>Execute as: <b>Me</b> / Who has access: <b>Anyone</b> → Deploy','"Implantar" → "Nova implantação" → tipo "App da Web"<br>Executar como: <b>Eu</b> / Quem tem acesso: <b>Qualquer pessoa</b> → Implantar'],
+ 'sheet.s4':['表示された「ウェブアプリのURL」を上の欄に貼り付けて、送信方式を②にして「保存」','Paste the "Web app URL" into the field above, set the method to ②, and press Save','Cole o "URL do app da Web" no campo acima, escolha o método ② e toque em Salvar'],
+ 'sheet.s5':['コードを更新したときは「デプロイ」→「デプロイを管理」→ 鉛筆 →「新バージョン」で再デプロイ（URLは変わりません）。初回は権限の承認が必要です。','After changing the code: "Deploy" → "Manage deployments" → pencil → "New version" (the URL stays the same). The first time you must authorize access.','Ao alterar o código: "Implantar" → "Gerenciar implantações" → lápis → "Nova versão" (a URL não muda). Na primeira vez é preciso autorizar o acesso.'],
+ 'sheet.link':['📄 記録先のスプレッドシートを開く','📄 Open the linked spreadsheet','📄 Abrir a planilha vinculada'],
+ 'sheet.copycode':['コードをコピー','Copy code','Copiar código'],
+ 'sheet.url':['ウェブアプリURL','Web app URL','URL do app da Web'],
+ 'sheet.saveurl':['URLと方式を保存','Save URL and method','Salvar URL e método'],
+ 'sheet.test':['テスト送信（ダミー1行）','Send test (1 dummy row)','Enviar teste (1 linha fictícia)'],
+ 'sheet.saved':['保存しました。','Saved.','Salvo.'],
+ 'sheet.cleared':['連携を解除しました。','Sync disabled.','Sincronização desativada.'],
+ 'sheet.needurl':['先にURLを入力して保存してください。','Please enter and save the URL first.','Informe e salve a URL primeiro.'],
+ 'sheet.testok':['テスト送信しました。スプレッドシートに「テスト太郎」が追加されているか確認してください（追加されない場合はデプロイ設定「全員」を確認）。','Test sent. Check that a row "テスト太郎" appeared in the sheet (if not, check that access is set to "Anyone").','Teste enviado. Verifique se a linha "テスト太郎" apareceu na planilha (se não, confira se o acesso está como "Qualquer pessoa").'],
+ 'sheet.testfail':['送信に失敗しました。','Sending failed.','Falha no envio.']
+};
+let lang = (() => { try { const v = localStorage.getItem('lang'); if (LANGS.includes(v)) return v; } catch(e){}
+  const n = (navigator.language || 'ja').slice(0,2); return LANGS.includes(n) ? n : 'ja'; })();
+
+function t(k, p){
+  const e = I18N[k];
+  let s = e ? (e[LANGS.indexOf(lang)] || e[0]) : k;
+  if (p) s = s.replace(/\{(\w+)\}/g, (m, x) => (p[x] !== undefined ? p[x] : m));
+  return s;
+}
+const tv = v => I18N['v.'+v] ? t('v.'+v) : v;
+const cityLabel = c => I18N['c.'+c] ? t('c.'+c) : c;
+const resLabel = v => v === 'その他' ? t('v.res.その他') : cityLabel(v);
+
+function applyStatic(){
+  document.documentElement.lang = lang;
+  document.title = t('app.title').replace(/^📋\s*/, '');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-txt]').forEach(el => { el.textContent = t(el.dataset.i18nTxt).replace(/<[^>]+>/g, ''); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh).replace(/<[^>]+>/g, ''); });
+  $('lang-select').value = lang;
+  const loc = lang === 'pt' ? 'pt-BR' : lang === 'en' ? 'en-US' : 'ja-JP';
+  $('currentDate').textContent = new Date().toLocaleDateString(loc);
+}
+
+/* =========================================================
+   基本データ
+   ========================================================= */
+const CITY = {
+  '稲沢市':[35.2486,136.7806], '一宮市':[35.3047,136.8031], '小牧市':[35.2911,136.9119],
+  '北名古屋市':[35.2506,136.8656], '名古屋市':[35.1815,136.9066], '清須市':[35.2342,136.8546],
+  '春日井市':[35.2478,136.9722], '岩倉市':[35.2778,136.8708], '江南市':[35.3331,136.8683],
+  '犬山市':[35.3783,136.9444], '津島市':[35.1769,136.7414], 'あま市':[35.1992,136.8000],
+  '愛西市':[35.1700,136.7200], '弥富市':[35.1100,136.7200], '岐阜市':[35.4233,136.7606],
+  '羽島市':[35.3172,136.7014], '各務原市':[35.3989,136.8483], '大口町':[35.3300,136.9000],
+  '扶桑町':[35.3300,136.9400], '豊田市':[35.0828,137.1564], '岡崎市':[34.9547,137.1745],
+  '和歌山県':[34.2306,135.1708]
+};
+// 都市名（日本語／英語／ポルトガル語、「市」「-shi」「city」の有無を問わず）→ 内部の日本語名
+const normCityText = s => String(s || '').toLowerCase().replace(/\(.*?\)|（.*?）/g, '').replace(/[\s\-・,，、]/g, '')
+  .replace(/(prefecture|pref\.?|city|shi|市|町|県)$/, '');
+const CITY_LOOKUP = {};
+Object.keys(CITY).forEach(c => { CITY_LOOKUP[normCityText(c)] = c; LANGS.forEach((_, i) => { CITY_LOOKUP[normCityText(I18N['c.'+c][i])] = c; }); });
+const resolveCity = s => { s = String(s || '').trim(); return s ? (CITY_LOOKUP[normCityText(s)] || '') : ''; };
+const normCity = s => resolveCity(s) || s.trim();
+
+const FACTORY_VERSION = 'v1';
+const DEFAULT_FACTORIES = [
+  {name:'中部抵抗器（本社）',   wants:['weld'], locations:['稲沢市'],           shifts:['昼勤','夜勤'], housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:3},
+  {name:'中部抵抗器（西之町）', wants:['weld'], locations:['稲沢市'],           shifts:['昼勤','夜勤'], housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:10, current:8},
+  {name:'中部抵抗器（和歌山）', wants:['weld'], locations:['和歌山県'],         shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:2},
+  {name:'シーエルシー',         locations:['北名古屋市'],       shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:8,  current:4},
+  {name:'大橋鉄工',             locations:['小牧市'],           shifts:['昼勤'],        housing:'記載なし', gender:'不問', ageMin:null, ageMax:null, capacity:6,  current:3},
+  {name:'マルイ工業',           locations:['稲沢市'],           shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:2},
+  {name:'ジャパン工業',         locations:['稲沢市'],           shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:4},
+  {name:'矢田工業所',           locations:['稲沢市'],           shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:6,  current:3},
+  {name:'東陽物流',             wants:['reach'], locations:['小牧市'],           shifts:['昼勤','夜勤'], housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:8,  current:5},
+  {name:'名豊興運',             wants:['truck'], boost:12, locations:['小牧市','一宮市'],  shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:2},
+  {name:'サムトランスポート',   locations:['小牧市'],           shifts:['昼勤'],        housing:'あり',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:3},
+  {name:'小川産業',             locations:['名古屋市'],         shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:4,  current:2},
+  {name:'千代化工',             locations:['一宮市'],           shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:6,  current:4},
+  {name:'リバース',             locations:['小牧市'],           shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:1}
+].map((f,i)=>({id:'f'+(i+1), wants:[], boost:0, status:'open', maleCap:0, maleCur:0, femCap:0, femCur:0, ...f}));
+
+// 添付フォームの既存スクリプトURL（②の設定欄で変更できます）
+// 記録先スプレッドシート（新スクリプト②のコードにもこのIDが入ります）
+const SHEET_ID = '1Hgv8maKYohZv62n4XF-rNVtiGfNa86y3dkGVD-SOZP4';
+const SHEET_PAGE = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/edit';
+const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycby9ffRiG3XWTKCsoypdHqg0TjLCyT_7RyF_TtlTzZzINMGh7R8Qmc1lAMxPNoVSYSOw/exec';
+
+/* =========================================================
+   保存・読み込み
+   ========================================================= */
+const LS = {
+  get(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let factories = LS.get('factories_'+FACTORY_VERSION, null) || JSON.parse(JSON.stringify(DEFAULT_FACTORIES));
+(function(){
+  const dd = {}; DEFAULT_FACTORIES.forEach(f => dd[f.name] = f);
+  let ch = false;
+  factories.forEach(f => {
+    if (!Array.isArray(f.wants)){ f.wants = (dd[f.name] && dd[f.name].wants) || []; ch = true; }
+    if ('subCap' in f || 'subCur' in f){
+      if (typeof f.femCap !== 'number'){ f.femCap = f.subCap || 0; f.femCur = f.subCur || 0; }
+      delete f.subCap; delete f.subCur; ch = true;
+    }
+    ['maleCap','maleCur','femCap','femCur'].forEach(k => { if (typeof f[k] !== 'number'){ f[k] = 0; ch = true; } });
+    if (typeof f.boost !== 'number'){ f.boost = (dd[f.name] && dd[f.name].boost) || 0; ch = true; }
+    if (!f.status){ f.status = 'open'; ch = true; }
+  });
+  if (!LS.get('migr_v2', false)){
+    factories.forEach(f => { if (/^中部抵抗器/.test(f.name) && !(f.wants || []).includes('weld')){ f.wants = [...(f.wants || []), 'weld']; } });
+    LS.set('migr_v2', true); ch = true;
+  }
+  if (ch) LS.set('factories_'+FACTORY_VERSION, factories);
+})();
+const QCERT = { forklift:'Empilhadeira', truck:'Caminhão', weld:'Solda' };
+let applicants = LS.get('applicants', []);
+applicants.forEach(a => {   // 旧バージョンのデータを新フォーム形式に補完
+  if ('usedSub' in a || 'subsidy' in a){ a.usedFem = !!a.usedFem || (!!a.usedSub && a.gender === '女性'); delete a.usedSub; delete a.subsidy; }
+  if (a.memo && !a.obs) a.obs = a.memo;
+  if (a.cityText === undefined) a.cityText = (a.residence && a.residence !== 'その他') ? a.residence : '';
+  if (a.apto === undefined) a.apto = ({'必要':'Sim','不要':'Não'})[a.housing] || '';
+  if (!Array.isArray(a.cert)) a.cert = (a.quals || []).map(k => QCERT[k]).filter(Boolean);
+  if (!Array.isArray(a.apps)) a.apps = [];
+});
+let sheetUrl = LS.get('sheetUrl', '') || DEFAULT_SHEET_URL;
+let sheetMode = LS.get('sheetMode', LS.get('sheetUrl', '') ? 'json' : 'form');
+let curId = null;
+
+const saveFactories = () => LS.set('factories_'+FACTORY_VERSION, factories);
+const saveApplicants = () => LS.set('applicants', applicants);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* =========================================================
+   表示サイズ（PC／スマホ）
+   ========================================================= */
+let viewPref = LS.get('viewPref', 'auto');
+function applyView(){
+  const v = viewPref === 'auto' ? (window.innerWidth >= 900 ? 'pc' : 'mobile') : viewPref;
+  const el = document.documentElement;
+  el.classList.toggle('v-pc', v === 'pc'); el.classList.toggle('v-mobile', v === 'mobile');
+  // スマホで「PC表示」を選んだときは、横幅1100pxの画面として表示する
+  const meta = document.querySelector('meta[name=viewport]');
+  const want = (viewPref === 'pc' && Math.min(screen.width, screen.height) < 700) ? 'width=1100' : 'width=device-width, initial-scale=1.0, viewport-fit=cover';
+  if (meta && meta.content !== want) meta.content = want;
+}
+window.addEventListener('resize', () => { if (viewPref === 'auto') applyView(); });
+window.addEventListener('orientationchange', () => { if (viewPref === 'auto') setTimeout(applyView, 200); });
+$('view-select').addEventListener('change', e => { viewPref = e.target.value; LS.set('viewPref', viewPref); applyView(); });
+$('view-select').value = viewPref;
+applyView();
+
+/* =========================================================
+   タブ
+   ========================================================= */
+function activeTab(){ return document.querySelector('.tab.active').id; }
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  b.classList.add('active'); $(b.dataset.tab).classList.add('active');
+  if (b.dataset.tab === 'tab-factory') renderFactoryAdmin();
+  if (b.dataset.tab === 'tab-list') renderApplicants();
+  if (b.dataset.tab === 'tab-search') openSearchTab();
+  window.scrollTo({top:0});
+}));
+
+/* =========================================================
+   フォーム
+   ========================================================= */
+function initSelects(){
+  const wv = $('f-wish').value;
+  $('f-wish').innerHTML = `<option value="どこでも">${esc(t('v.どこでも'))}</option>`
+    + [...new Set(factories.flatMap(f => f.locations))].map(c => `<option value="${esc(c)}">${esc(cityLabel(c))}</option>`).join('');
+  $('f-wish').value = wv || 'どこでも';
+  if ($('f-wish').value !== (wv || 'どこでも')) $('f-wish').value = 'どこでも';
+}
+const radio = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value || '';
+const setRadio = (name, val) => document.querySelectorAll(`input[name=${name}]`).forEach(r => { r.checked = (r.value === val); });
+const CERT_KEY = { 'Empilhadeira':'forklift', 'Caminhão':'truck', 'Solda':'weld' };
+
+function readForm(){
+  const cert = [...document.querySelectorAll('input[name=cert]:checked')].map(x => x.value);
+  const car = radio('car'), apto = radio('apto'), cityText = $('f-city').value.trim();
+  const quals = cert.map(c => CERT_KEY[c]).filter(Boolean);
+  if (car === 'Sim') quals.push('car');                       // 車を持っている＝自動車免許ありとして扱う
+  return {
+    name: $('f-name').value.trim(), age: parseInt($('f-age').value, 10) || null,
+    gender: ({M:'男性', F:'女性'})[$('f-gender').value] || '',
+    phone: $('f-phone').value.trim(), apps: [...document.querySelectorAll('input[name=apps]:checked')].map(x => x.value),
+    cityText, residence: resolveCity(cityText),
+    nihongo: $('f-nihongo').value.trim(),
+    cert, certOther: $('f-certother').value.trim(), reach: $('f-reach').checked && cert.includes('Empilhadeira'),
+    quals, job: radio('job'), car, apto,
+    housing: apto === 'Sim' ? '必要' : apto === 'Não' ? '不要' : 'どちらでも',
+    filhos: $('f-filhos').value.trim(),
+    shift: radio('shift') || 'どちらでも', wishLocation: $('f-wish').value || 'どこでも',
+    interviewDate: $('f-idate').value.trim(), interviewTime: $('f-itime').value, wage: $('f-wage').value.trim(),
+    vaga: $('f-vaga').value.trim(), interviewer: $('f-interviewer').value.trim(),
+    obs: $('f-obs').value.trim()
+  };
+}
+function validate(a){
+  const miss = [];
+  if (!a.name) miss.push(t('f.name').replace(/<[^>]+>/g, ''));
+  return miss;
+}
+function showMsg(id, type, text){ const m = $(id); m.className = 'msg ' + type; m.textContent = text; }
+function clearMsg(id){ $(id).className = 'msg'; $(id).textContent = ''; }
+
+function updateCityHint(){
+  const v = $('f-city').value.trim(), h = $('city-hint');
+  if (!v){ h.textContent = ''; h.className = 'hint'; return; }
+  const c = resolveCity(v);
+  if (c){ h.textContent = t('city.ok', {c: cityLabel(c)}); h.className = 'hint ok'; }
+  else { h.textContent = t('city.unknown'); h.className = 'hint warn'; }
+}
+function bindForm(){
+  $('f-city').addEventListener('input', updateCityHint);
+  // フォークリフトとリーチリフトの連動
+  const fk = document.querySelector('input[name=cert][value=Empilhadeira]'), rc = $('f-reach');
+  fk.addEventListener('change', () => { if (!fk.checked) rc.checked = false; });
+  rc.addEventListener('change', () => { if (rc.checked) fk.checked = true; });
+}
+
+/* =========================================================
+   マッチングロジック（理由は [key, params] で保持し、表示時に翻訳）
+   ========================================================= */
+function km(a, b){
+  const R = 6371, rad = x => x * Math.PI / 180;
+  const dLat = rad(b[0]-a[0]), dLng = rad(b[1]-a[1]);
+  const h = Math.sin(dLat/2)**2 + Math.cos(rad(a[0]))*Math.cos(rad(b[0]))*Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function distanceTo(f, residence){
+  if (residence === 'その他') return 999;
+  const from = CITY[residence];
+  if (!from) return null;
+  const ds = f.locations.map(l => CITY[l]).filter(Boolean).map(p => km(from, p));
+  return ds.length ? Math.min(...ds) : null;
+}
+const qualList = a => {
+  const l = (a.quals || []).map(k => t('q.'+k));
+  if (a.reach) l.push(t('q.reach'));
+  if (a.certOther) l.push(a.certOther);
+  return l;
+};
+const cityDisp = a => a.residence ? resLabel(a.residence) : (a.cityText || '—');
+const ageDisp = a => a.age ? t('match.age', {n:a.age}) : '—';
+const maleRem = f => Math.max(0, (f.maleCap || 0) - (f.maleCur || 0));
+const femRem  = f => Math.max(0, (f.femCap  || 0) - (f.femCur  || 0));
+// 男性枠・女性枠は「その性別専用」。他の性別の人が使えるのは 総残り − 他性別の専用残り
+function slotBlock(f, gender){
+  const rem = Math.max(0, f.capacity - f.current);
+  if (rem <= 0) return null;
+  if (!['男性','女性','その他'].includes(gender)) return null;     // 性別未入力は判定しない
+  const mR = gender !== '男性' ? maleRem(f) : 0, fR = gender !== '女性' ? femRem(f) : 0;
+  if (rem - mR - fR > 0) return null;
+  return mR > 0 && fR > 0 ? 'ng.reserved' : (fR > 0 ? 'ng.femaleonly' : 'ng.maleonly');
+}
+const slotExtra = f => {
+  const parts = [];
+  if (f.maleCap > 0) parts.push(`<div class="status-item"><span>🚹 ${t('slot.male')}</span><strong>${maleRem(f)}/${f.maleCap}</strong></div>`);
+  if (f.femCap  > 0) parts.push(`<div class="status-item"><span>🚺 ${t('slot.female')}</span><strong>${femRem(f)}/${f.femCap}</strong></div>`);
+  return parts.length ? `<div class="status-box" style="margin-top:6px">${parts.join('')}</div>` : '';
+};
+const remainingOf = f => Math.max(0, f.capacity - f.current);
+// 「随時（良い人がいれば）」の工場は、人数が埋まっていても良い人なら紹介・決定できる
+const canPlace = f => (f.status || 'open') !== 'closed' && (remainingOf(f) > 0 || f.status === 'good');
+const statusBadge = f => (f.status === 'good') ? `<span class="badge st-good">${esc(t('st.good'))}</span>` : (f.status === 'closed') ? `<span class="badge st-closed">${esc(t('st.closed'))}</span>` : '';
+const ageRangeText = f => t('age.range', { a: f.ageMin || '', b: f.ageMax || '' });
+
+function evaluate(f, a){
+  const ok = [], warn = [], ng = [];
+  let s = 40;
+  const rem = remainingOf(f);
+
+  const st = f.status || 'open';
+  if (st === 'closed') ng.push(['ng.closed']);
+  else if (rem <= 0 && st !== 'good') ng.push(['ng.full']);
+  else if (rem > 0){ s += Math.min(rem, 5) * 2; ok.push(['r.slots', {n:rem}]); }
+
+  if (rem > 0){
+    const blk = slotBlock(f, a.gender);
+    if (blk) ng.push([blk]);
+    else if (a.gender === '男性' && maleRem(f) > 0){ s += 8; ok.push(['r.maleslot', {n:maleRem(f)}]); }
+    else if (a.gender === '女性' && femRem(f) > 0){ s += 8; ok.push(['r.femaleslot', {n:femRem(f)}]); }
+  }
+
+  if (a.age && f.ageMin && a.age < f.ageMin) ng.push(['ng.agemin', {n:f.ageMin}]);
+  else if (a.age && f.ageMax && a.age > f.ageMax) ng.push(['ng.agemax', {n:f.ageMax}]);
+  else if (f.ageMin || f.ageMax){ if (a.age){ s += 8; ok.push(['r.ageok', {r:ageRangeText(f)}]); } }
+  else s += 4;
+
+  if (f.gender === '男性推奨'){
+    if (a.gender === '男性'){ s += 10; ok.push(['r.male']); } else if (a.gender){ s -= 18; warn.push(['w.maleWork']); }
+  } else if (f.gender === '女性推奨'){
+    if (a.gender === '女性'){ s += 10; ok.push(['r.female']); } else if (a.gender){ s -= 18; warn.push(['w.femaleWork']); }
+  } else s += 4;
+
+  const hasDay = f.shifts.includes('昼勤'), hasNight = f.shifts.includes('夜勤');
+  if (a.shift === '昼勤のみ'){ if (hasDay){ s += 14; ok.push(['r.day']); } else ng.push(['ng.noday']); }
+  else if (a.shift === '夜勤のみ'){ if (hasNight){ s += 14; ok.push(['r.night']); } else ng.push(['ng.nonight']); }
+  else { s += hasDay && hasNight ? 8 : 4; ok.push(['r.shifts', {s: f.shifts.map(tv).join(' / ')}]); }
+
+  const d = distanceTo(f, a.residence);
+  const hasHouse = f.housing === 'あり';
+  const dk = d === null ? 0 : Math.round(d);
+  if (d === null) warn.push(['w.dist']);
+  else if (d <= 6){ s += 25; ok.push(['r.near', {n:dk}]); }
+  else if (d <= 15){ s += 18; ok.push(['r.zone', {n:dk}]); }
+  else if (d <= 25){ s += 8; ok.push(['r.car', {n:dk}]); }
+  else if (d <= 40){ s -= 2; warn.push(['w.far', {n:dk}]); }
+  else {
+    if (hasHouse){ s += 6; warn.push(['w.farhouse']); } else ng.push(['ng.far']);
+  }
+  // 車がない人は、遠い工場（社宅なし）を減点
+  if (a.car === 'Não' && d !== null && d > 15 && d <= 40 && !hasHouse){ s -= 15; warn.push(['w.nocar', {n:dk}]); }
+
+  if (a.housing === '必要'){
+    if (hasHouse){ s += 12; ok.push(['r.house']); }
+    else if (f.housing === '記載なし'){ s -= 5; warn.push(['w.houseq']); }
+    else ng.push(['ng.nohouse']);
+  } else if (a.housing === 'どちらでも' && hasHouse){ s += 2; }
+
+  if (a.wishLocation && a.wishLocation !== 'どこでも'){
+    if (f.locations.includes(a.wishLocation)){ s += 18; ok.push(['r.wish']); } else s -= 6;
+  }
+
+  // 募集中の資格・経験を持っていれば大きく加点
+  const BONUS = { car:8, forklift:15, truck:30, weld:25 };
+  const has = k => (a.quals || []).includes(k);
+  (f.wants || []).forEach(w => {
+    if (w === 'reach'){
+      if (a.reach){ s += 30; ok.unshift(['r.want', {q:t('q.reach')}]); }
+      else if (has('forklift')){ s += 8; warn.unshift(['r.reachq']); }
+    } else if (has(w)){ s += BONUS[w] || 10; ok.unshift(['r.want', {q:t('q.'+w)}]); }
+  });
+  if (f.boost){ s += f.boost; ok.unshift(['r.boost']); }
+  // 随時（良い人がいれば）：募集資格に合う人か、総合点が高い人だけを紹介対象にする
+  if (st === 'good'){
+    const fit = (f.wants || []).some(w => w === 'reach' ? a.reach : has(w));
+    if (fit || Math.round(s) >= 80){
+      if (!fit) s -= 10;                       // 資格が合わない場合は、積極募集中の工場より下に並べる
+      ok.unshift(['r.goodfit']); if (rem <= 0) warn.push(['w.goodfull']);
+    } else ng.push(['ng.goodonly']);
+  }
+
+  const raw = Math.round(s);
+  s = Math.max(0, Math.min(100, raw));
+  return { f, score:s, raw, ok, warn, ng, rem, dist:d };
+}
+function matchAll(a){
+  const all = factories.map(f => evaluate(f, a));
+  return {
+    good: all.filter(r => !r.ng.length).sort((x,y) => y.raw - x.raw),
+    out:  all.filter(r =>  r.ng.length).sort((x,y) => y.raw - x.raw)
+  };
+}
+const R = r => t(r[0], r[1]);
+
+function adminSlotRow(icon, label, hint, pre, cap, cur){
+  const rem = Math.max(0, cap - cur);
+  return `<div class="small" style="margin:10px 0 2px"><b>${icon} ${label}</b>（${hint}）</div>
+  <div class="status-box">
+    <div class="status-item"><span>${t('s.cap')}</span><div class="stepper"><button data-act="${pre}cap-">−</button><strong>${cap}</strong><button data-act="${pre}cap+">＋</button></div></div>
+    <div class="status-item"><span>${t('s.cur')}</span><div class="stepper"><button data-act="${pre}cur-">−</button><strong>${cur}</strong><button data-act="${pre}cur+">＋</button></div></div>
+    <div class="status-item"><span>${t('s.rem')}</span><strong class="remaining ${rem===0?'zero':''}">${rem}</strong></div>
+  </div>`;
+}
+
+/* =========================================================
+   マッチ結果の表示
+   ========================================================= */
+function gradeOf(sc){ return sc >= 75 ? ['great', t('grade.great')] : sc >= 55 ? ['good', t('grade.good')] : ['fair', t('grade.fair')]; }
+
+function factoryInfoTable(f){
+  const age = (f.ageMin||f.ageMax) ? ageRangeText(f) : tv('不問');
+  return `<table class="info-table">
+    <tr><td class="label">${t('i.loc')}</td><td>${esc(f.locations.map(cityLabel).join(' / '))}</td></tr>
+    <tr><td class="label">${t('i.shift')}</td><td>${esc(f.shifts.map(tv).join(' / '))}</td></tr>
+    <tr><td class="label">${t('i.house')}</td><td>${esc(tv(f.housing))}</td></tr>
+    <tr><td class="label">${t('i.target')}</td><td>${esc(t('i.targetval', {age, gender: tv(f.gender)}))}</td></tr>
+    ${(f.wants && f.wants.length) ? `<tr><td class="label">${t('i.want')}</td><td>⭐ ${esc(f.wants.map(k => t('q.'+k)).join(' / '))}</td></tr>` : ''}
+    ${(f.status && f.status !== 'open') ? `<tr><td class="label">${t('fac.status')}</td><td>${esc(t('st.' + f.status))}</td></tr>` : ''}
+  </table>`;
+}
+function statusBox(f){
+  const rem = remainingOf(f);
+  return `<div class="status-box">
+    <div class="status-item"><span>${t('s.cap')}</span><strong>${t('n.people',{n:f.capacity})}</strong></div>
+    <div class="status-item"><span>${t('s.cur')}</span><strong>${t('n.people',{n:f.current})}</strong></div>
+    <div class="status-item"><span>${t('s.rem')}</span><strong class="remaining ${rem===0?'zero':''}">${t('n.people',{n:rem})}</strong></div>
+  </div>`;
+}
+const curApplicant = () => applicants.find(x => x.id === curId);
+
+function renderMatch(a){
+  const { good, out } = matchAll(a);
+  const assigned = curApplicant() ? curApplicant().assigned : '';
+  let html = `<div class="box"><h2>${esc(t('match.title', {name: a.name || t('match.thisperson'), n: good.length}))}</h2>
+    <div class="small">${esc(t('match.sum', {res: cityDisp(a), age: ageDisp(a), gender: a.gender ? tv(a.gender) : '—', shift: tv(a.shift), housing: tv(a.housing)}))}</div>
+    ${qualList(a).length ? `<div class="small">${esc(t('match.quals',{q: qualList(a).join(' / ')}))}</div>` : ''}</div>`;
+
+  if (!good.length) html += `<div class="box">${esc(t('match.none'))}</div>`;
+
+  good.forEach((r, i) => {
+    const [cls, label] = gradeOf(r.score);
+    const isMine = assigned === r.f.name;
+    html += `<div class="factory-card s-${cls}">
+      <div class="factory-name"><span>${i+1}. 🏢 ${esc(r.f.name)} ${statusBadge(r.f)}</span><span class="badge ${cls}">${esc(label)} ${esc(t('pts',{n:r.score}))}</span></div>
+      <div class="bar"><div style="width:${r.score}%"></div></div>
+      ${factoryInfoTable(r.f)}
+      <div class="reasons">
+        ${r.ok.map(x => `<div class="ok">✔ ${esc(R(x))}</div>`).join('')}
+        ${r.warn.map(x => `<div class="warn">⚠ ${esc(R(x))}</div>`).join('')}
+      </div>
+      ${statusBox(r.f)}${slotExtra(r.f)}
+      <div class="card-actions">
+        ${isMine
+          ? `<button class="btn btn-sub btn-sm" disabled>${t('btn.decided')}</button>`
+          : `<button class="btn btn-green btn-sm" data-decide="${r.f.id}">${t('btn.decide')}</button>`}
+      </div>
+    </div>`;
+  });
+
+  if (out.length){
+    html += `<div class="box"><details><summary>${esc(t('excluded',{n:out.length}))}</summary>` +
+      out.map(r => `<div class="app-item"><div class="nm">${esc(r.f.name)}</div>
+        <div class="reasons">${r.ng.map(x => `<div class="ng">✖ ${esc(R(x))}</div>`).join('')}</div></div>`).join('') +
+      `</details></div>`;
+  }
+  $('match-area').innerHTML = html;
+  $('match-area').dataset.shown = '1';
+  $('match-area').querySelectorAll('[data-decide]').forEach(b => b.addEventListener('click', () => decide(b.dataset.decide)));
+}
+
+/* =========================================================
+   応募者の登録・決定
+   ========================================================= */
+function topNames(a){ return matchAll(a).good.slice(0,3).map(r => r.f.name).join(' / '); }
+function upsertApplicant(a, assignedName, extra){
+  const now = new Date().toLocaleString('ja-JP');
+  let rec = curApplicant();
+  if (!rec){
+    curId = 'A' + Date.now();
+    rec = { id:curId, createdAt:now, assigned:'' };
+    applicants.unshift(rec);
+  }
+  Object.assign(rec, a, { top: topNames(a) });
+  if (assignedName !== undefined) rec.assigned = assignedName;
+  if (extra) Object.assign(rec, extra);
+  saveApplicants();
+  return rec;
+}
+
+/* ---------- スプレッドシート送信 ---------- */
+// 方式①：添付フォームと同じ項目名・同じ形式（x-www-form-urlencoded）
+const formPayload = a => ({
+  nome: a.name || '', idade: a.age ?? '', genero: ({'男性':'M','女性':'F'})[a.gender] || '',
+  telefone: a.phone || '', apps: (a.apps || []).join(', '), cidade: a.cityText || '',
+  nihongo: a.nihongo ?? '',
+  cert: (a.cert || []).map(c => (c === 'Empilhadeira' && a.reach) ? 'Empilhadeira (reach)' : c).join(', '),
+  cert_outros: a.certOther || '', job: a.job || '', car: a.car || '', apto: a.apto || '', filhos: a.filhos || '',
+  data_entrevista: a.interviewDate || '', hora_entrevista: a.interviewTime || '',
+  salario: a.wage || '', vaga: a.vaga || '', entrevistador: a.interviewer || '', obs: a.obs || ''
+});
+// 方式②：JSON（行の更新あり）。列名・値は日本語
+const CERT_JA = { 'Empilhadeira':'フォークリフト', 'Caminhão':'中型トラック', 'Solda':'溶接', 'Outros':'その他' };
+const COLS = [
+  ['id','ID'],['createdAt','登録日時'],['name','名前'],['age','年齢'],['gender','性別'],['phone','電話'],
+  ['appsText','連絡アプリ'],['cityText','在住地'],['nihongo','日本語%'],['qualsText','保有資格'],['reachText','リーチリフト経験'],
+  ['certOther','その他資格'],['job','現在の仕事'],['car','車'],['apto','寮希望'],['filhos','子供'],
+  ['interviewDate','面接日'],['interviewTime','面接時間'],['wage','時給'],['vaga','募集職種'],['interviewer','担当者'],
+  ['shift','希望勤務体制'],['wishLocation','希望勤務地'],['obs','備考'],['assigned','決定先'],['top','おすすめ上位']
+];
+const exportRec = a => ({ ...a,
+  appsText: (a.apps || []).join('・'),
+  qualsText: (a.cert || []).map(c => CERT_JA[c] || c).join('・'),
+  reachText: a.reach ? 'あり' : '' });
+
+async function sendToSheet(rec, force){
+  if (!sheetUrl) return 'none';
+  if (sheetMode === 'form' && rec.sentForm && !force) return 'skipped';
+  try {
+    if (sheetMode === 'form'){
+      await fetch(sheetUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams(formPayload(rec)).toString() });
+      rec.sentForm = Date.now(); saveApplicants();
+    } else {
+      await fetch(sheetUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(exportRec(rec)) });
+    }
+    return 'sent';
+  } catch(e){ return 'error'; }
+}
+const sendResultText = (r, rec) => t(({sent:'m.sent', none:'m.none', skipped:'m.skipped'})[r] || 'm.error', {name: rec.name});
+
+$('btn-register').addEventListener('click', async () => {
+  const a = readForm(), miss = validate(a);
+  if (miss.length){ showMsg('msg-form','err', t('m.miss',{x: miss.join(', ')})); return; }
+  const rec = upsertApplicant(a);
+  let force = false;
+  if (sheetMode === 'form' && rec.sentForm){
+    force = confirm(t('m.resend'));
+    if (!force){ showMsg('msg-form','info', t('m.skipped',{name:rec.name})); renderApplicants(); return; }
+  }
+  const r = await sendToSheet(rec, force);
+  showMsg('msg-form', r === 'error' ? 'err' : 'ok', sendResultText(r, rec));
+  renderApplicants();
+});
+$('btn-match').addEventListener('click', () => {
+  const a = readForm();
+  if (!a.age || !a.gender){ showMsg('msg-form','err', t('m.need2')); return; }
+  clearMsg('msg-form');
+  renderMatch(a);
+  $('match-area').scrollIntoView({behavior:'smooth', block:'start'});
+});
+$('btn-print').addEventListener('click', () => window.print());
+
+async function decide(fid){
+  const a = readForm(), miss = validate(a);
+  if (miss.length){ showMsg('msg-form','err', t('m.needdecide',{x: miss.join(', ')})); window.scrollTo({top:0,behavior:'smooth'}); return; }
+  const f = factories.find(x => x.id === fid);
+  if (!f || !canPlace(f)){ showMsg('msg-form','err', t(f && f.status === 'closed' ? 'ng.closed' : 'm.full')); return; }
+  const blk = slotBlock(f, a.gender);
+  if (blk){ showMsg('msg-form','err', t(blk)); return; }
+  const prev = curApplicant();
+  if (prev) releaseSlot(prev);
+  f.current++;
+  const usedMale = a.gender === '男性' && f.maleCap > 0 && maleRem(f) > 0;
+  const usedFem  = a.gender === '女性' && f.femCap > 0 && femRem(f) > 0;
+  if (usedMale) f.maleCur++;
+  if (usedFem) f.femCur++;
+  saveFactories();
+  const rec = upsertApplicant(a, f.name, { usedMale, usedFem });
+  const r = await sendToSheet(rec);
+  showMsg('msg-form', r === 'error' ? 'err' : 'ok', t('m.decided',{f:f.name, c:f.current, cap:f.capacity}) + sendResultText(r, rec));
+  renderMatch(a);
+  renderApplicants();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function clearForm(){
+  $('interview-form').reset();
+  setRadio('shift', 'どちらでも');
+  $('f-wish').value = 'どこでも';
+  updateCityHint();
+  curId = null; $('match-area').innerHTML = ''; delete $('match-area').dataset.shown; clearMsg('msg-form');
+}
+$('btn-clear').addEventListener('click', () => { clearForm(); window.scrollTo({top:0, behavior:'smooth'}); });
+
+/* =========================================================
+   工場の枠 管理
+   ========================================================= */
+function renderFactoryAdmin(){
+  const list = $('factory-admin');
+  list.innerHTML = factories.map(f => {
+    const rem = remainingOf(f);
+    const opt = (vals, cur) => vals.map(o => `<option value="${o}" ${cur===o?'selected':''}>${esc(tv(o))}</option>`).join('');
+    return `<div class="factory-card ${rem===0?'full':''}" data-fid="${f.id}">
+      <div class="factory-name"><span>🏢 ${esc(f.name)} ${statusBadge(f)}</span>${rem===0?`<span class="badge">${t('full')}</span>`:''}</div>
+      ${factoryInfoTable(f)}
+      <div class="status-box">
+        <div class="status-item"><span>${t('s.cap')}</span>
+          <div class="stepper"><button data-act="cap-">−</button><strong>${f.capacity}</strong><button data-act="cap+">＋</button></div></div>
+        <div class="status-item"><span>${t('s.cur')}</span>
+          <div class="stepper"><button data-act="cur-">−</button><strong>${f.current}</strong><button data-act="cur+">＋</button></div></div>
+        <div class="status-item"><span>${t('s.rem')}</span><strong class="remaining ${rem===0?'zero':''}">${t('n.people',{n:rem})}</strong></div>
+      </div>
+      ${adminSlotRow('🚹', t('slot.male'), t('slot.maleHint'), 'm', f.maleCap || 0, f.maleCur || 0)}
+      ${adminSlotRow('🚺', t('slot.female'), t('slot.femaleHint'), 'f', f.femCap || 0, f.femCur || 0)}
+      <div class="card-actions"><button class="btn btn-sub btn-sm" data-act="edit">${t('fac.edit')}</button></div>
+      <div class="edit-panel" id="edit-${f.id}">
+        <div class="field"><label class="t">${t('fac.name')}</label><input type="text" data-k="name" value="${esc(f.name)}"></div>
+        <div class="field"><label class="t">${t('fac.locs')}</label><input type="text" data-k="locations" value="${esc(f.locations.map(cityLabel).join(', '))}"></div>
+        <div class="field"><label class="t">${t('fac.shifts')}</label>
+          <div class="check-line">
+            <label><input type="checkbox" data-k="day" ${f.shifts.includes('昼勤')?'checked':''}>${t('v.昼勤')}</label>
+            <label><input type="checkbox" data-k="night" ${f.shifts.includes('夜勤')?'checked':''}>${t('v.夜勤')}</label>
+          </div></div>
+        <div class="row2">
+          <div class="field"><label class="t">${t('fac.house')}</label><select data-k="housing">${opt(['あり','なし','記載なし'], f.housing)}</select></div>
+          <div class="field"><label class="t">${t('fac.gender')}</label><select data-k="gender">${opt(['不問','男性推奨','女性推奨'], f.gender)}</select></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label class="t">${t('fac.agemin')}</label><input type="number" data-k="ageMin" value="${f.ageMin ?? ''}" placeholder="${esc(t('fac.none'))}"></div>
+          <div class="field"><label class="t">${t('fac.agemax')}</label><input type="number" data-k="ageMax" value="${f.ageMax ?? ''}" placeholder="${esc(t('fac.none'))}"></div>
+        </div>
+        <div class="field"><label class="t">${t('fac.wants')}</label>
+          <div class="check-line">${['car','forklift','reach','truck','weld'].map(k => `<label><input type="checkbox" data-w="${k}" ${(f.wants||[]).includes(k)?'checked':''}>${t('q.'+k)}</label>`).join('')}</div></div>
+        <div class="field"><label class="t">${t('fac.status')}</label>
+          <select data-k="status">${['open','good','closed'].map(k => `<option value="${k}" ${(f.status||'open')===k?'selected':''}>${esc(t('st.'+k))}</option>`).join('')}</select>
+          <div class="hint">${esc(t('st.goodHint'))}</div></div>
+        <div class="field"><label class="t">${t('fac.boost')}</label><input type="number" data-k="boost" min="0" max="30" value="${f.boost || 0}"></div>
+        <div class="card-actions">
+          <button class="btn btn-main btn-sm" data-act="save">${t('fac.save')}</button>
+          <button class="btn btn-red btn-sm" data-act="delete">${t('fac.delete')}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.factory-card').forEach(card => {
+    const f = factories.find(x => x.id === card.dataset.fid);
+    card.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', () => {
+      const act = btn.dataset.act;
+      if (act === 'cap+') f.capacity++;
+      else if (act === 'cap-') f.capacity = Math.max(0, f.capacity - 1);
+      else if (act === 'cur+') f.current++;
+      else if (act === 'cur-') f.current = Math.max(0, f.current - 1);
+      else if (/^[mf](cap|cur)[+-]$/.test(act)){
+        const key = {mcap:'maleCap', mcur:'maleCur', fcap:'femCap', fcur:'femCur'}[act.slice(0,4)];
+        f[key] = Math.max(0, (f[key] || 0) + (act.endsWith('+') ? 1 : -1));
+      }
+      else if (act === 'edit'){ $('edit-'+f.id).classList.toggle('open'); return; }
+      else if (act === 'save'){ saveEdit(f, card); }
+      else if (act === 'delete'){
+        if (!confirm(t('fac.confdel',{n:f.name}))) return;
+        factories = factories.filter(x => x.id !== f.id);
+      }
+      saveFactories(); initSelects(); renderFactoryAdmin();
+    }));
+  });
+}
+function saveEdit(f, card){
+  const g = k => card.querySelector(`[data-k=${k}]`);
+  const num = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
+  f.name = g('name').value.trim() || f.name;
+  f.locations = g('locations').value.split(/[,、，・]+/).map(normCity).filter(Boolean);
+  f.shifts = [g('day').checked && '昼勤', g('night').checked && '夜勤'].filter(Boolean);
+  if (!f.shifts.length) f.shifts = ['昼勤'];
+  f.housing = g('housing').value; f.gender = g('gender').value;
+  f.ageMin = num(g('ageMin').value); f.ageMax = num(g('ageMax').value);
+  f.wants = [...card.querySelectorAll('[data-w]:checked')].map(x => x.dataset.w);
+  f.boost = Math.max(0, Math.min(30, num(g('boost').value) || 0));
+  f.status = g('status').value || 'open';
+  const unknown = f.locations.filter(l => !CITY[l]);
+  if (unknown.length) alert(t('fac.unknown',{x: unknown.join(', ')}));
+}
+$('btn-add-factory').addEventListener('click', () => {
+  factories.push({ id:'f'+Date.now(), name:t('fac.newname'), locations:['稲沢市'], shifts:['昼勤'], housing:'記載なし', gender:'不問', ageMin:null, ageMax:null, wants:[], boost:0, status:'open', maleCap:0, maleCur:0, femCap:0, femCur:0, capacity:5, current:0 });
+  saveFactories(); initSelects(); renderFactoryAdmin();
+  const cards = document.querySelectorAll('#factory-admin .factory-card');
+  const last = cards[cards.length-1]; last.querySelector('.edit-panel').classList.add('open'); last.scrollIntoView({behavior:'smooth'});
+});
+$('btn-reset-factory').addEventListener('click', () => {
+  if (!confirm(t('fac.confreset'))) return;
+  factories = JSON.parse(JSON.stringify(DEFAULT_FACTORIES));
+  saveFactories(); initSelects(); renderFactoryAdmin();
+});
+
+/* =========================================================
+   応募者一覧・出力（コピー／CSVは常に日本語の列名・値）
+   ========================================================= */
+function renderApplicants(){
+  $('list-title').textContent = t('list.title',{n:applicants.length});
+  $('app-list').innerHTML = applicants.length ? applicants.map(a => `
+    <div class="app-item">
+      <div><span class="nm">${esc(a.name)}</span>
+        <span class="tag ${a.assigned?'':'none'}">${esc(a.assigned ? t('list.placed',{f:a.assigned}) : t('list.unplaced'))}</span></div>
+      <div class="sub">${esc(t('match.sum',{res:cityDisp(a), age:ageDisp(a), gender:a.gender ? tv(a.gender) : '—', shift:tv(a.shift || 'どちらでも'), housing:tv(a.housing || 'どちらでも')}))}</div>
+      ${qualList(a).length ? `<div class="sub">🎓 ${esc(qualList(a).join(' / '))}</div>` : ''}
+      ${a.phone ? `<div class="sub">☎ ${esc(a.phone)}${(a.apps||[]).length ? ' (' + esc(a.apps.join(', ')) + ')' : ''}</div>` : ''}
+      ${(a.interviewDate || a.interviewTime || a.vaga) ? `<div class="sub">📅 ${esc([a.interviewDate, a.interviewTime, a.vaga].filter(Boolean).join(' / '))}</div>` : ''}
+      ${a.obs ? `<div class="sub">📝 ${esc(a.obs)}</div>` : ''}
+      <div class="sub">${esc(a.createdAt)}</div>
+      <div class="card-actions">
+        <button class="btn btn-sub btn-sm" data-edit="${a.id}">${t('list.load')}</button>
+        ${a.assigned ? `<button class="btn btn-sub btn-sm" data-undo="${a.id}">${t('list.undo')}</button>` : ''}
+        <button class="btn btn-red btn-sm" data-del="${a.id}">${t('list.del')}</button>
+      </div>
+    </div>`).join('') : `<div class="small">${esc(t('list.empty'))}</div>`;
+
+  $('app-list').querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    const a = applicants.find(x => x.id === b.dataset.del);
+    if (!confirm(t('list.confdel',{n:a.name}) + (a.assigned ? t('list.confdel2',{f:a.assigned}) : ''))) return;
+    releaseSlot(a);
+    applicants = applicants.filter(x => x.id !== a.id); if (curId === a.id) curId = null;
+    saveApplicants(); saveFactories(); renderApplicants();
+  }));
+  $('app-list').querySelectorAll('[data-undo]').forEach(b => b.addEventListener('click', async () => {
+    const a = applicants.find(x => x.id === b.dataset.undo);
+    releaseSlot(a); a.assigned = '';
+    saveApplicants(); saveFactories(); renderApplicants();
+    await sendToSheet(a);
+  }));
+  $('app-list').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => loadToForm(b.dataset.edit)));
+}
+function releaseSlot(a){
+  if (!a.assigned) return;
+  const f = factories.find(x => x.name === a.assigned);
+  if (f){
+    if (f.current > 0) f.current--;
+    if (a.usedMale && f.maleCur > 0) f.maleCur--;
+    if (a.usedFem && f.femCur > 0) f.femCur--;
+  }
+  a.usedMale = false; a.usedFem = false;
+}
+function loadToForm(id){
+  const a = applicants.find(x => x.id === id); if (!a) return;
+  clearForm();
+  curId = id;
+  $('f-name').value = a.name || ''; $('f-age').value = a.age || ''; $('f-phone').value = a.phone || '';
+  $('f-gender').value = ({'男性':'M','女性':'F'})[a.gender] || '';
+  document.querySelectorAll('input[name=apps]').forEach(x => x.checked = (a.apps || []).includes(x.value));
+  $('f-city').value = a.cityText ? (CITY[a.cityText] ? cityLabel(a.cityText) : a.cityText) : ''; updateCityHint();
+  $('f-nihongo').value = a.nihongo ?? '';
+  document.querySelectorAll('input[name=cert]').forEach(x => x.checked = (a.cert || []).includes(x.value));
+  $('f-certother').value = a.certOther || ''; $('f-reach').checked = !!a.reach;
+  setRadio('job', a.job || ''); setRadio('car', a.car || ''); setRadio('apto', a.apto || '');
+  $('f-filhos').value = a.filhos || '';
+  setRadio('shift', a.shift || 'どちらでも'); $('f-wish').value = a.wishLocation || 'どこでも';
+  $('f-idate').value = a.interviewDate || ''; $('f-itime').value = a.interviewTime || ''; $('f-wage').value = a.wage || '';
+  $('f-vaga').value = a.vaga || ''; $('f-interviewer').value = a.interviewer || ''; $('f-obs').value = a.obs || '';
+  document.querySelector('[data-tab=tab-input]').click();
+  renderMatch(readForm()); window.scrollTo({top:0});
+}
+
+const cell = v => String(v ?? '');
+function toCSV(){
+  const q = v => '"' + cell(v).replace(/"/g, '""') + '"';
+  return [COLS.map(c => q(c[1])).join(',')].concat(applicants.slice().reverse().map(a => { const e = exportRec(a); return COLS.map(c => q(e[c[0]])).join(','); })).join('\r\n');
+}
+function toTSV(){
+  const x = v => cell(v).replace(/[\t\r\n]+/g, ' ');
+  return [COLS.map(c => c[1]).join('\t')].concat(applicants.slice().reverse().map(a => { const e = exportRec(a); return COLS.map(c => x(e[c[0]])).join('\t'); })).join('\n');
+}
+$('btn-csv').addEventListener('click', () => {
+  if (!applicants.length){ showMsg('msg-list','err', t('list.nodata')); return; }
+  const blob = new Blob(['\uFEFF' + toCSV()], { type:'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'applicants_' + new Date().toISOString().slice(0,10) + '.csv'; a.click(); URL.revokeObjectURL(url);
+  showMsg('msg-list','ok', t('csv.done'));
+});
+async function copyText(text, msgId, okKey){
+  try { await navigator.clipboard.writeText(text); showMsg(msgId,'ok', t(okKey)); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showMsg(msgId,'ok', t(okKey)); } catch(e2){ showMsg(msgId,'err', t('copy.fail')); }
+    ta.remove();
+  }
+}
+$('btn-copy').addEventListener('click', () => {
+  if (!applicants.length){ showMsg('msg-list','err', t('list.nodata')); return; }
+  copyText(toTSV(), 'msg-list', 'copy.done');
+});
+
+/* =========================================================
+   スプレッドシート連携設定
+   ========================================================= */
+const GAS_CODE = [
+"// Linked spreadsheet (method 2): saves/reads the tab below. One row per applicant ID.",
+"const SHEET_ID = '" + SHEET_ID + "';",
+"const TAB = '応募者';",
+"const KEYS = " + JSON.stringify(COLS.map(c => c[0])) + ";",
+"const HEAD = " + JSON.stringify(COLS.map(c => c[1])) + ";",
+"const TEXT_KEYS = ['phone', 'interviewDate', 'interviewTime', 'filhos'];",
+"",
+"function sheet_() {",
+"  const ss = SpreadsheetApp.openById(SHEET_ID);",
+"  return ss.getSheetByName(TAB) || ss.insertSheet(TAB);",
+"}",
+"",
+"function doPost(e) {",
+"  const d = JSON.parse(e.postData.contents);",
+"  const sh = sheet_();",
+"  if (sh.getLastRow() === 0) sh.appendRow(HEAD);",
+"  const row = KEYS.map(k => {",
+"    const v = (d[k] === undefined || d[k] === null) ? '' : d[k];",
+"    return (TEXT_KEYS.indexOf(k) >= 0 && v !== '') ? \"'\" + v : v;",
+"  });",
+"  const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getValues().flat();",
+"  const i = ids.indexOf(d.id);",
+"  if (i > 0) sh.getRange(i + 1, 1, 1, row.length).setValues([row]);",
+"  else sh.appendRow(row);",
+"  return ContentService.createTextOutput('ok');",
+"}",
+"",
+"// Used by the app's \"Search\" tab to read everyone registered",
+"function doGet(e) {",
+"  const sh = sheet_();",
+"  const n = sh.getLastRow() - 1;",
+"  const vals = n > 0 ? sh.getRange(2, 1, n, KEYS.length).getValues() : [];",
+"  const rows = vals.map(r => {",
+"    const o = {};",
+"    KEYS.forEach((k, i) => { o[k] = (r[i] instanceof Date) ? r[i].toISOString() : r[i]; });",
+"    return o;",
+"  });",
+"  return ContentService.createTextOutput(JSON.stringify({ rows: rows }))",
+"    .setMimeType(ContentService.MimeType.JSON);",
+"}"
+].join('\n');
+$('gas-code').textContent = GAS_CODE;
+$('btn-copy-gas').addEventListener('click', () => copyText(GAS_CODE, 'msg-url', 'copy.code'));
+$('f-sheet-url').value = sheetUrl;
+$('sheet-link').href = SHEET_PAGE;
+$('f-sheet-mode').value = sheetMode;
+$('btn-save-url').addEventListener('click', () => {
+  sheetUrl = $('f-sheet-url').value.trim(); sheetMode = $('f-sheet-mode').value;
+  LS.set('sheetUrl', sheetUrl); LS.set('sheetMode', sheetMode);
+  showMsg('msg-url', 'ok', t(sheetUrl ? 'sheet.saved' : 'sheet.cleared'));
+});
+$('btn-test-url').addEventListener('click', async () => {
+  const url = $('f-sheet-url').value.trim();
+  if (!url){ showMsg('msg-url','err', t('sheet.needurl')); return; }
+  const keepUrl = sheetUrl, keepMode = sheetMode;
+  sheetUrl = url; sheetMode = $('f-sheet-mode').value;
+  const dummy = { id:'TEST'+Date.now(), createdAt:new Date().toLocaleString('ja-JP'), name:'テスト太郎', age:30, gender:'男性',
+    phone:'000-0000-0000', apps:['LINE'], cityText:'小牧市', cert:[], job:'', car:'', apto:'', shift:'どちらでも', wishLocation:'どこでも', obs:'テスト送信', assigned:'', top:'' };
+  const r = await sendToSheet(dummy, true);
+  sheetUrl = keepUrl; sheetMode = keepMode;
+  showMsg('msg-url', r === 'sent' ? 'info' : 'err', t(r === 'sent' ? 'sheet.testok' : 'sheet.testfail'));
+});
+
+
+/* =========================================================
+   ④ 人材検索（工場の募集依頼 → 登録済みの人をピックアップ）
+   ========================================================= */
+let remoteRows = [], remoteLoaded = false;
+const REV_CERT = { 'フォークリフト':'Empilhadeira', '中型トラック':'Caminhão', '溶接':'Solda', 'その他':'Outros' };
+function deriveFields(a){
+  a.cert = Array.isArray(a.cert) ? a.cert : [];
+  a.apps = Array.isArray(a.apps) ? a.apps : [];
+  if (a.cityText) a.residence = resolveCity(a.cityText);
+  a.quals = a.cert.map(c => CERT_KEY[c]).filter(Boolean);
+  if (a.car === 'Sim') a.quals.push('car');
+  a.housing = a.apto === 'Sim' ? '必要' : a.apto === 'Não' ? '不要' : 'どちらでも';
+  return a;
+}
+function fromSheetRow(o){
+  const S = v => (v === undefined || v === null) ? '' : String(v);
+  return deriveFields({
+    id:S(o.id), createdAt:S(o.createdAt), name:S(o.name), age:parseInt(o.age, 10) || null, gender:S(o.gender), phone:S(o.phone),
+    apps:S(o.appsText).split('・').filter(Boolean), cityText:S(o.cityText), residence:'', nihongo:S(o.nihongo),
+    cert:S(o.qualsText).split('・').map(x => REV_CERT[x]).filter(Boolean), certOther:S(o.certOther), reach:S(o.reachText) === 'あり',
+    job:S(o.job), car:S(o.car), apto:S(o.apto), filhos:S(o.filhos),
+    interviewDate:S(o.interviewDate), interviewTime:S(o.interviewTime), wage:S(o.wage), vaga:S(o.vaga), interviewer:S(o.interviewer),
+    shift:S(o.shift) || 'どちらでも', wishLocation:S(o.wishLocation) || 'どこでも', obs:S(o.obs), assigned:S(o.assigned), top:S(o.top)
+  });
+}
+function candidatePool(){
+  const ids = new Set(applicants.map(a => a.id));
+  return [ ...applicants.map(a => deriveFields({...a, _src:'local'})),
+           ...remoteRows.filter(r => !ids.has(r.id)).map(r => ({...r, _src:'sheet'})) ];
+}
+function updateSearchSource(){
+  const b = remoteRows.filter(r => !applicants.some(a => a.id === r.id)).length;
+  $('search-source').textContent = t('search.source', {a: applicants.length, b});
+}
+async function loadRemote(manual){
+  if (!sheetUrl || sheetMode !== 'json'){ if (manual) showMsg('msg-search','info', t('search.needmode')); return false; }
+  try {
+    const res = await fetch(sheetUrl + (sheetUrl.includes('?') ? '&' : '?') + 'action=list');
+    const j = await res.json();
+    remoteRows = (j.rows || []).filter(r => r.id && !String(r.id).startsWith('TEST') && r.name).map(fromSheetRow);
+    remoteLoaded = true; updateSearchSource();
+    if (manual) showMsg('msg-search','ok', t('search.loaded',{n:remoteRows.length}));
+    return true;
+  } catch(e){ if (manual) showMsg('msg-search','err', t('search.loadfail')); return false; }
+}
+function fillSearchFactories(){
+  const sel = $('s-factory'), cur = sel.value;
+  sel.innerHTML = `<option value="">${esc(t('search.free'))}</option>` +
+    factories.map(f => `<option value="${f.id}">${esc(f.name)}（${esc(t('s.rem'))} ${remainingOf(f)}${f.status === 'good' ? '・' + esc(t('st.good')) : f.status === 'closed' ? '・' + esc(t('st.closed')) : ''}）</option>`).join('');
+  sel.value = factories.some(f => f.id === cur) ? cur : '';
+}
+function applyFactoryToSearch(){
+  const f = factories.find(x => x.id === $('s-factory').value); if (!f) return;
+  $('s-need').value = (f.status === 'good') ? '' : (remainingOf(f) || '');
+  $('s-gender').value = f.gender === '男性推奨' ? '男性' : f.gender === '女性推奨' ? '女性' : '';
+  $('s-agemin').value = f.ageMin || ''; $('s-agemax').value = f.ageMax || '';
+  document.querySelectorAll('input[name=sprefer]').forEach(x => { x.checked = (f.wants || []).includes(x.value); });
+  document.querySelectorAll('input[name=smust]').forEach(x => { x.checked = false; });
+  $('s-shift').value = f.shifts.length === 1 ? f.shifts[0] : '';
+  $('s-loc').value = f.locations[0] ? cityLabel(f.locations[0]) : '';
+  $('s-house').value = f.housing === '記載なし' ? '' : f.housing;
+}
+function readCriteria(){
+  const num = id => { const n = parseInt($(id).value, 10); return isNaN(n) ? null : n; };
+  const locText = $('s-loc').value.trim();
+  return {
+    factoryId: $('s-factory').value, need: num('s-need'), gender: $('s-gender').value,
+    ageMin: num('s-agemin'), ageMax: num('s-agemax'),
+    must: [...document.querySelectorAll('input[name=smust]:checked')].map(x => x.value),
+    prefer: [...document.querySelectorAll('input[name=sprefer]:checked')].map(x => x.value),
+    shift: $('s-shift').value, locText, loc: resolveCity(locText), km: num('s-km') || 20, house: $('s-house').value,
+    carReq: $('s-car').checked, minjp: num('s-minjp'), idle: $('s-idle').checked, excl: $('s-excl').checked
+  };
+}
+const hasQual = (c, k) => k === 'reach' ? !!c.reach : (c.quals || []).includes(k);
+
+function evalCandidate(c, cr){
+  const ok = [], warn = [], ng = [];
+  let s = 50;
+  if (cr.excl && c.assigned) ng.push(['x.placed', {f:c.assigned}]);
+
+  if (cr.gender){
+    if (c.gender && c.gender !== cr.gender) ng.push(['x.gender', {g:tv(cr.gender)}]);
+    else if (!c.gender) warn.push(['s.genunk']);
+  }
+  if (cr.ageMin || cr.ageMax){
+    if (!c.age) warn.push(['s.ageunk']);
+    else if ((cr.ageMin && c.age < cr.ageMin) || (cr.ageMax && c.age > cr.ageMax)) ng.push(['x.age', {a:c.age}]);
+    else s += 3;
+  }
+  const miss = cr.must.filter(k => !hasQual(c, k));
+  if (miss.length) ng.push(['x.must', {q: miss.map(k => t('q.'+k)).join(' / ')}]);
+  else if (cr.must.length){ s += 5; ok.push(['s.must', {q: cr.must.map(k => t('q.'+k)).join(' / ')}]); }
+  const got = cr.prefer.filter(k => hasQual(c, k) && !cr.must.includes(k));
+  got.forEach(k => { s += (k === 'reach' ? 15 : 12); });
+  if (got.length) ok.unshift(['s.pref', {q: got.map(k => t('q.'+k)).join(' / ')}]);
+
+  if (cr.shift){
+    const want = cr.shift === '昼勤' ? '昼勤のみ' : '夜勤のみ';
+    if (c.shift === 'どちらでも' || c.shift === want) s += 3; else ng.push(['x.shift', {s: tv(c.shift)}]);
+  }
+  if (cr.loc){
+    const d = c.residence === 'その他' ? 999 : (CITY[c.residence] ? km(CITY[c.residence], CITY[cr.loc]) : null);
+    if (d === null) warn.push(['s.distunk']);
+    else if (d <= cr.km){ s += d <= 6 ? 20 : d <= 15 ? 12 : 5; ok.push(['s.near', {n:Math.round(d)}]); }
+    else if (cr.house === 'あり' && c.apto !== 'Não'){ s += 2; warn.push(['s.farhouse', {n:Math.round(d)}]); }
+    else ng.push(['x.dist', {n:d >= 999 ? '—' : Math.round(d)}]);
+  }
+  if (cr.house === 'なし' && c.apto === 'Sim') ng.push(['x.nohouse']);
+  if (cr.house === 'あり' && c.apto === 'Sim'){ s += 5; ok.push(['s.hsmatch']); }
+
+  if (cr.carReq){
+    if (c.car === 'Não') ng.push(['x.car']); else if (!c.car) warn.push(['s.carunk']); else { s += 3; ok.push(['s.car']); }
+  } else if (c.car === 'Sim') s += 3;
+
+  const nj = parseInt(c.nihongo, 10);
+  if (cr.minjp){
+    if (isNaN(nj)) warn.push(['s.jpunk']); else if (nj < cr.minjp) ng.push(['x.jp', {n:nj}]);
+  }
+  if (!isNaN(nj)){ s += Math.round(nj / 10); if (cr.minjp || nj >= 70) ok.push(['s.jp', {n:nj}]); }
+  if (cr.idle && (c.job === 'Não' || c.job === 'Seguro')){ s += 10; ok.push(['s.idle']); }
+
+  const f = factories.find(x => x.id === cr.factoryId);
+  if (f && c.gender && slotBlock(f, c.gender)) ng.push(['x.slot']);
+
+  return { c, raw:Math.round(s), score:Math.max(0, Math.min(100, Math.round(s))), ok, warn, ng };
+}
+
+const SEARCH_COLS = ['名前','年齢','性別','住まい','電話','連絡アプリ','資格','車','寮','日本語%','現在の仕事','面接日','面接時間','備考'];
+const searchRow = c => [c.name, c.age || '', c.gender, c.cityText, c.phone, (c.apps || []).join('・'),
+  [ ...(c.cert || []).map(x => CERT_JA[x] || x), ...(c.reach ? ['リーチ'] : []) ].join('・'),
+  c.car, c.apto, c.nihongo, c.job, c.interviewDate, c.interviewTime, c.obs];
+const ynLabel = v => v ? t('yn.' + v) : '—';
+let lastGood = [];
+
+function candidateCard(r, i, cr, f){
+  const c = r.c, cls = r.score >= 75 ? 's-great' : r.score >= 55 ? 's-good' : 's-fair';
+  const gl = r.score >= 75 ? 'great' : r.score >= 55 ? 'good' : 'fair';
+  const quals = qualList(c);
+  const info = [
+    `${ageDisp(c)} / ${c.gender ? tv(c.gender) : '—'} / ${esc(c.cityText || '—')}`,
+    c.phone ? `☎ ${esc(c.phone)}${(c.apps||[]).length ? ' (' + esc(c.apps.join(', ')) + ')' : ''}` : '',
+    quals.length ? `🎓 ${esc(quals.join(' / '))}` : '',
+    `🚗 ${esc(t('d.car'))}: ${esc(ynLabel(c.car))} ／ 🏠 ${esc(t('d.apto'))}: ${esc(ynLabel(c.apto))} ／ 💼 ${esc(t('d.job'))}: ${esc(ynLabel(c.job))}${c.nihongo !== '' && c.nihongo !== undefined ? ' ／ 🇯🇵 ' + esc(t('d.jp')) + ': ' + esc(c.nihongo) + '%' : ''}`,
+    (c.interviewDate || c.interviewTime || c.vaga) ? `📅 ${esc([c.interviewDate, c.interviewTime, c.vaga].filter(Boolean).join(' / '))}` : '',
+    c.obs ? `📝 ${esc(c.obs)}` : ''
+  ].filter(Boolean).map(x => `<div class="small" style="color:#334155">${x}</div>`).join('');
+  let action = '';
+  if (c.assigned) action = `<span class="tag">${esc(t('search.placedto',{f:c.assigned}))}</span>`;
+  else if (f && canPlace(f)) action = `<button class="btn btn-green btn-sm" data-place="${esc(c.id)}">${esc(t('search.place',{f:f.name}))}</button>`;
+  return `<div class="factory-card cand-card ${cls}">
+    <div class="factory-name"><span>${i+1}. 👤 ${esc(c.name)} <span class="small">(${esc(t(c._src === 'sheet' ? 'search.src.sheet' : 'search.src.local'))})</span></span><span class="badge ${gl}">${esc(t('pts',{n:r.score}))}</span></div>
+    <div class="bar"><div style="width:${r.score}%"></div></div>
+    ${info}
+    <div class="reasons">
+      ${r.ok.map(x => `<div class="ok">✔ ${esc(R(x))}</div>`).join('')}
+      ${r.warn.map(x => `<div class="warn">⚠ ${esc(R(x))}</div>`).join('')}
+    </div>
+    ${action ? `<div class="card-actions">${action}</div>` : ''}
+  </div>`;
+}
+
+function runSearch(silent){
+  const cr = readCriteria();
+  const f = factories.find(x => x.id === cr.factoryId);
+  const all = candidatePool().map(c => evalCandidate(c, cr));
+  const good = all.filter(r => !r.ng.length).sort((x, y) => y.raw - x.raw);
+  const out = all.filter(r => r.ng.length).sort((x, y) => y.raw - x.raw);
+  lastGood = good;
+  if (!silent) clearMsg('msg-search');
+  const need = cr.need;
+  let html = `<div class="box"><h2>${esc(need ? t('search.found',{m:good.length, n:need}) : t('search.found0',{m:good.length}))}</h2>`;
+  if (need && good.length < need) html += `<div class="small" style="color:#b45309">⚠ ${esc(t('search.short'))}</div>`;
+  if (cr.locText && !cr.loc) html += `<div class="small" style="color:#b45309">⚠ ${esc(t('search.locunk'))}</div>`;
+  if (!good.length) html += `<div class="small">${esc(t('search.none'))}</div>`;
+  html += `<div class="btn-row"><button type="button" class="btn btn-sub" id="btn-search-copy">${esc(t('search.copy'))}</button><button type="button" class="btn btn-sub" id="btn-search-csv">${esc(t('search.csv'))}</button></div></div>`;
+  html += good.map((r, i) => candidateCard(r, i, cr, f)).join('');
+  if (out.length){
+    html += `<div class="box"><details><summary>${esc(t('search.excluded',{n:out.length}))}</summary>` +
+      out.map(r => `<div class="app-item"><div class="nm">${esc(r.c.name)}</div><div class="sub">${esc(ageDisp(r.c))} / ${esc(r.c.cityText || '—')}</div>
+        <div class="reasons">${r.ng.map(x => `<div class="ng">✖ ${esc(R(x))}</div>`).join('')}</div></div>`).join('') + `</details></div>`;
+  }
+  const box = $('search-results'); box.innerHTML = html; box.dataset.shown = '1';
+  $('btn-search-copy').addEventListener('click', () => {
+    const tsv = [SEARCH_COLS.join('\t')].concat(lastGood.map(r => searchRow(r.c).map(v => String(v ?? '').replace(/[\t\r\n]+/g, ' ')).join('\t'))).join('\n');
+    copyText(tsv, 'msg-search', 'copy.done');
+  });
+  $('btn-search-csv').addEventListener('click', () => {
+    const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const csv = [SEARCH_COLS.map(q).join(',')].concat(lastGood.map(r => searchRow(r.c).map(q).join(','))).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'candidates_' + new Date().toISOString().slice(0,10) + '.csv'; a.click(); URL.revokeObjectURL(url);
+  });
+  box.querySelectorAll('[data-place]').forEach(b => b.addEventListener('click', () => placeFromSearch(b.dataset.place)));
+  if (!silent) box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function placeRec(rec, f){
+  if (!canPlace(f)) return { err: (f.status === 'closed' ? 'ng.closed' : 'm.full') };
+  const blk = slotBlock(f, rec.gender); if (blk) return { err:blk };
+  releaseSlot(rec);
+  f.current++;
+  const usedMale = rec.gender === '男性' && f.maleCap > 0 && maleRem(f) > 0;
+  const usedFem  = rec.gender === '女性' && f.femCap > 0 && femRem(f) > 0;
+  if (usedMale) f.maleCur++;
+  if (usedFem) f.femCur++;
+  rec.assigned = f.name; rec.usedMale = usedMale; rec.usedFem = usedFem;
+  saveFactories(); saveApplicants();
+  return { ok:true, r: await sendToSheet(rec) };
+}
+async function placeFromSearch(id){
+  const f = factories.find(x => x.id === $('s-factory').value); if (!f) return;
+  let rec = applicants.find(x => x.id === id);
+  if (!rec){
+    const r = remoteRows.find(x => x.id === id); if (!r) return;
+    rec = {...r}; delete rec._src; applicants.unshift(rec);
+  }
+  const res = await placeRec(rec, f);
+  if (res.err){ showMsg('msg-search','err', t(res.err)); return; }
+  showMsg('msg-search', res.r === 'error' ? 'err' : 'ok', t('m.decided',{f:f.name, c:f.current, cap:f.capacity}) + sendResultText(res.r, rec));
+  fillSearchFactories(); updateSearchSource(); renderApplicants(); runSearch(true);
+}
+async function openSearchTab(){
+  fillSearchFactories(); updateSearchSource();
+  if (!remoteLoaded && sheetUrl && sheetMode === 'json'){ await loadRemote(false); }
+}
+function bindSearch(){
+  $('s-factory').addEventListener('change', applyFactoryToSearch);
+  $('btn-search').addEventListener('click', () => runSearch(false));
+  $('btn-load-remote').addEventListener('click', async () => { await loadRemote(true); if ($('search-results').dataset.shown) runSearch(true); });
+  $('btn-search-clear').addEventListener('click', () => {
+    ['s-need','s-agemin','s-agemax','s-loc','s-minjp'].forEach(id => $(id).value = '');
+    ['s-gender','s-shift','s-house','s-factory'].forEach(id => $(id).value = '');
+    $('s-km').value = 20; $('s-car').checked = false; $('s-idle').checked = false; $('s-excl').checked = true;
+    document.querySelectorAll('input[name=smust], input[name=sprefer]').forEach(x => { x.checked = false; });
+    $('search-results').innerHTML = ''; delete $('search-results').dataset.shown; clearMsg('msg-search');
+  });
+}
+
+/* =========================================================
+   言語切替・起動
+   ========================================================= */
+function setLang(l){
+  lang = l;
+  try { localStorage.setItem('lang', l); } catch(e){}
+  applyStatic(); initSelects(); updateCityHint(); fillSearchFactories(); updateSearchSource();
+  ['msg-form','msg-list','msg-url'].forEach(clearMsg);
+  renderApplicants();
+  if (activeTab() === 'tab-factory') renderFactoryAdmin();
+  if ($('match-area').dataset.shown){
+    const a = readForm();
+    if (a.age && a.gender) renderMatch(a);
+  }
+  if ($('search-results').dataset.shown) runSearch(true);
+}
+$('lang-select').addEventListener('change', e => setLang(e.target.value));
+
+applyStatic(); initSelects(); bindForm(); bindSearch(); renderApplicants();
+</script>
+</body>
+</html>
+
   * { box-sizing: border-box; }
   body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; background:#f4f6f9; color:#333; margin:0; padding:10px; }
   .container { max-width:520px; margin:0 auto; }
