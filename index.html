@@ -134,6 +134,30 @@ window.addEventListener('error', function(e){ var el=document.getElementById('bo
 
   /* ===== 表示サイズ：PC表示／スマホ表示（自動判定。右上のボタンで手動切替も可） ===== */
   .tab-btn { display:flex; align-items:center; justify-content:center; gap:6px; }
+  /* 会社カード：会社名＋在籍／枠を1行で、時給は小さく。タップで詳細が開く */
+  .fac-head { cursor:pointer; padding:2px 0; -webkit-user-select:none; user-select:none; }
+  .fac-top { display:flex; justify-content:space-between; align-items:center; gap:6px 10px; flex-wrap:wrap; }
+  .fac-name { font-weight:bold; color:#1e3a8a; font-size:1.02rem; }
+  .fac-count { font-size:.9rem; color:#334155; white-space:nowrap; }
+  .fac-count b { font-size:1.1rem; }
+  .badge.rem { background:#fee2e2; color:#b91c1c; }
+  .fac-sub { display:flex; justify-content:space-between; align-items:center; font-size:.75rem; color:#64748b; margin-top:3px; }
+  .chev { color:#94a3b8; font-size:.8rem; padding-left:8px; }
+  .fac-body { margin-top:10px; border-top:1px dashed #cbd5e1; padding-top:10px; }
+  .fac-body[hidden] { display:none; }
+  .wage-line { font-size:.75rem; color:#64748b; margin:-4px 0 6px; }
+
+  /* 報告書（画面表示・PDF/印刷 共通） */
+  #report-print { display:none; }
+  .report .rp-title { font-size:1.2rem; font-weight:bold; color:#1e3a8a; border-bottom:2px solid #1e3a8a; padding-bottom:4px; }
+  .report .rp-meta { font-size:.8rem; color:#475569; margin:6px 0 10px; }
+  .rp-scroll { overflow-x:auto; }
+  .rp-table { width:100%; border-collapse:collapse; font-size:.8rem; min-width:620px; }
+  .rp-table th, .rp-table td { border:1px solid #94a3b8; padding:5px 6px; text-align:center; }
+  .rp-table th { background:#e2e8f0; }
+  .rp-table td.l { text-align:left; }
+  .rp-table tfoot td { background:#f1f5f9; font-weight:bold; }
+  .rp-table tr { page-break-inside:avoid; }
   .badge.st-good { background:#ede9fe; color:#5b21b6; }
   .badge.st-closed { background:#e5e7eb; color:#4b5563; }
   html.v-pc { font-size:17px; }
@@ -170,6 +194,11 @@ window.addEventListener('error', function(e){ var el=document.getElementById('bo
   /* ===== 印刷（フォーム部分のみ） ===== */
   @media print {
     @page { size:A4; margin:.8cm; }
+    html.print-report .container, html.print-report #boot-msg, html.print-report #warn-msg { display:none !important; }
+    html.print-report #report-print { display:block !important; }
+    html.print-report body { background:#fff; padding:0 !important; }
+    html.print-report .rp-table { font-size:10.5px; min-width:0; }
+    html.v-mobile body { padding-bottom:0 !important; }
     body { background:#fff; padding:0; }
     .topbar, .tabs, #match-area, .btn-row, #msg-form, .no-print, .tab:not(#tab-input) { display:none !important; }
     #tab-input.active { display:block !important; }
@@ -370,10 +399,12 @@ window.addEventListener('error', function(e){ var el=document.getElementById('bo
       <h2 data-i18n="fac.title"></h2>
       <p class="small" style="margin-top:0" data-i18n="fac.help"></p>
       <div class="btn-row">
+        <button class="btn btn-green" id="btn-report" data-i18n="rp.make"></button>
         <button class="btn btn-sub" id="btn-add-factory" data-i18n="fac.add"></button>
         <button class="btn btn-sub" id="btn-reset-factory" data-i18n="fac.reset"></button>
       </div>
     </div>
+    <div id="report-preview"></div>
     <div id="factory-admin"></div>
   </div>
 
@@ -520,6 +551,8 @@ window.addEventListener('error', function(e){ var el=document.getElementById('bo
     <div id="search-results"></div>
   </div>
 </div>
+
+<div id="report-print"></div>
 
 <script>
 /* =========================================================
@@ -718,7 +751,7 @@ const I18N = {
 
  /* factory admin */
  'fac.title':['工場ごとの人数枠（現状に合わせて編集）','Slots per factory (edit to match reality)','Vagas por fábrica (edite conforme a situação atual)'],
- 'fac.help':['＋／－で「募集人数」と「在籍人数」を変更できます。「編集」から、勤務地・勤務体制・社宅・性別/年齢の条件なども変更できます。<b>性別・年齢の条件を入れると、マッチング結果に反映されます。</b>変更はこの端末に自動で保存されます。','Use ＋/− to change "Positions" and "Currently placed". "Edit" lets you change location, shifts, company housing and gender/age conditions. <b>Gender and age conditions are reflected in the matching results.</b> Changes are saved automatically on this device.','Use ＋/− para alterar "Total de vagas" e "Funcionários atuais". Em "Editar" você muda local, turnos, moradia da empresa e condições de sexo/idade. <b>As condições de sexo e idade são refletidas na seleção.</b> As alterações são salvas automaticamente neste aparelho.'],
+ 'fac.help':['工場名をタップすると、詳しい情報（勤務地・勤務体制・社宅・対象・人数の増減・編集）が開きます。人数は「＋／－」で変更でき、性別・年齢などの条件は「編集」から変更できます。<b>性別・年齢の条件を入れると、マッチング結果に反映されます。</b>変更はこの端末に自動で保存されます。','Tap a company name to open its details (location, shifts, company housing, eligibility, headcount changes, edit). Change headcounts with ＋/−, and conditions under "Edit". <b>Gender and age conditions are reflected in the matching results.</b> Changes are saved automatically on this device.','Toque no nome da empresa para abrir os detalhes (local, turnos, moradia da empresa, perfil, alterar números, editar). Altere os números com ＋/− e as condições em "Editar". <b>As condições de sexo e idade são refletidas na seleção.</b> As alterações são salvas automaticamente neste aparelho.'],
  'fac.add':['＋ 工場を追加','+ Add factory','+ Adicionar fábrica'],
  'fac.reset':['初期データに戻す','Reset to default data','Restaurar dados iniciais'],
  'fac.edit':['✏ 編集','✏ Edit','✏ Editar'],
@@ -758,6 +791,35 @@ const I18N = {
  'copy.fail':['コピーに失敗しました。','Copy failed.','Falha ao copiar.'],
  'copy.code':['コードをコピーしました。','Code copied.','Código copiado.'],
 
+ /* compact factory card + report */
+ 'c.cur':['在籍','On staff','Ativos'],
+ 'c.cap':['枠','Slots','Vagas'],
+ 'c.rem':['残り','Left','Restam'],
+ 'w.label':['時給','Hourly','Valor/hora'],
+ 'w.m':['男性','Men','Hom.'],
+ 'w.f':['女性','Women','Mul.'],
+ 'w.unset':['未設定','not set','não definido'],
+ 'fac.wageM':['時給（男性）','Hourly wage (men)','Valor/hora (homens)'],
+ 'fac.wageF':['時給（女性）','Hourly wage (women)','Valor/hora (mulheres)'],
+ 'rp.make':['📄 報告書を作成','📄 Create report','📄 Criar relatório'],
+ 'rp.title':['在籍人数・枠数 報告書','Staffing & Slots Report','Relatório de Funcionários e Vagas'],
+ 'rp.date':['作成日時','Created','Criado em'],
+ 'rp.count':['工場数：{n}','Factories: {n}','Fábricas: {n}'],
+ 'rp.no':['No.','No.','Nº'],
+ 'rp.name':['会社名','Company','Empresa'],
+ 'rp.loc':['勤務地','Location','Local'],
+ 'rp.status':['募集状況','Status','Situação'],
+ 'rp.cap':['枠数','Slots','Vagas'],
+ 'rp.cur':['在籍人数','On staff','Ativos'],
+ 'rp.rem':['残り人数','Remaining','Restantes'],
+ 'rp.male':['男性枠（残／枠）','Male slots (left/total)','Vagas masc. (rest./total)'],
+ 'rp.female':['女性枠（残／枠）','Female slots (left/total)','Vagas fem. (rest./total)'],
+ 'rp.wm':['時給（男性）','Wage (men)','Valor/h (homens)'],
+ 'rp.wf':['時給（女性）','Wage (women)','Valor/h (mulheres)'],
+ 'rp.total':['合計','Total','Total'],
+ 'rp.pdf':['📄 PDFで保存／印刷','📄 Save as PDF / Print','📄 Salvar PDF / Imprimir'],
+ 'rp.close':['閉じる','Close','Fechar'],
+ 'rp.hint':['印刷画面で、送信先（プリンタ）を「PDFに保存」にしてください。A4横向きで出力されます。','In the print dialog, choose "Save as PDF" as the destination. The report prints on landscape A4.','Na janela de impressão, escolha "Salvar como PDF" como destino. O relatório sai em A4 paisagem.'],
  /* recruitment status */
  'fac.status':['募集状況','Recruitment status','Situação de recrutamento'],
  'st.open':['募集中','Recruiting','Recrutando'],
@@ -931,7 +993,7 @@ const DEFAULT_FACTORIES = [
   {name:'小川産業',             locations:['名古屋市'],         shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:4,  current:2},
   {name:'千代化工',             locations:['一宮市'],           shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:6,  current:4},
   {name:'リバース',             locations:['小牧市'],           shifts:['昼勤'],        housing:'なし',     gender:'不問', ageMin:null, ageMax:null, capacity:5,  current:1}
-].map((f,i)=>({id:'f'+(i+1), wants:[], boost:0, status:'open', maleCap:0, maleCur:0, femCap:0, femCur:0, ...f}));
+].map((f,i)=>({id:'f'+(i+1), wants:[], boost:0, status:'open', wageMale:'', wageFemale:'', maleCap:0, maleCur:0, femCap:0, femCur:0, ...f}));
 
 // 送信先スクリプトのURL（③の設定欄でも変更できます）
 const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycby9ffRiG3XWTKCsoypdHqg0TjLCyT_7RyF_TtlTzZzINMGh7R8Qmc1lAMxPNoVSYSOw/exec';
@@ -1269,6 +1331,7 @@ function renderMatch(a){
     const isMine = assigned === r.f.name;
     html += `<div class="factory-card s-${cls}">
       <div class="factory-name"><span>${i+1}. 🏢 ${esc(r.f.name)} ${statusBadge(r.f)}</span><span class="badge ${cls}">${esc(label)} ${esc(t('pts',{n:r.score}))}</span></div>
+      <div class="wage-line">${esc(wageLine(r.f))}</div>
       <div class="bar"><div style="width:${r.score}%"></div></div>
       ${factoryInfoTable(r.f)}
       <div class="reasons">
@@ -1406,11 +1469,12 @@ $('btn-print').addEventListener('click', () => saveThenPrint(false));
 $('btn-pdf').addEventListener('click', () => saveThenPrint(true));
 // ブラウザのメニューや Ctrl+P から印刷／PDF保存したときも、必ず端末に保存する
 window.addEventListener('beforeprint', () => {
+  if (document.documentElement.classList.contains('print-report')) return;
   const a = readForm();
   if (!printBusy && a.name){ const rec = upsertApplicant(a); renderApplicants(); sendToSheet(rec); }
   document.title = printTitleFor(a);
 });
-window.addEventListener('afterprint', () => { printBusy = false; document.title = t('app.title').replace(/^📋\s*/, ''); });
+window.addEventListener('afterprint', () => { printBusy = false; endReportPrint(); });
 
 async function decide(fid){
   const a = readForm(), miss = validate(a);
@@ -1447,13 +1511,28 @@ $('btn-clear').addEventListener('click', () => { clearForm(); window.scrollTo({t
 /* =========================================================
    工場の枠 管理
    ========================================================= */
+let openFactories = new Set();
+function fmtWage(v){
+  v = String(nz(v)).trim();
+  if (!v) return t('w.unset');
+  return /^[\d,]+$/.test(v) ? '¥' + Number(v.replace(/,/g, '')).toLocaleString('ja-JP') : v;
+}
+function wageLine(f){ return t('w.label') + '　' + t('w.m') + ' ' + fmtWage(f.wageMale) + ' ／ ' + t('w.f') + ' ' + fmtWage(f.wageFemale); }
+
 function renderFactoryAdmin(){
   const list = $('factory-admin');
   list.innerHTML = factories.map(f => {
-    const rem = remainingOf(f);
+    const rem = remainingOf(f), open = openFactories.has(f.id);
     const opt = (vals, cur) => vals.map(o => `<option value="${o}" ${cur===o?'selected':''}>${esc(tv(o))}</option>`).join('');
     return `<div class="factory-card ${rem===0?'full':''}" data-fid="${f.id}">
-      <div class="factory-name"><span>🏢 ${esc(f.name)} ${statusBadge(f)}</span>${rem===0?`<span class="badge">${t('full')}</span>`:''}</div>
+      <div class="fac-head" data-toggle="1" role="button" tabindex="0" aria-expanded="${open}">
+        <div class="fac-top">
+          <span class="fac-name">🏢 ${esc(f.name)} ${statusBadge(f)}</span>
+          <span class="fac-count">${t('c.cur')} <b>${f.current}</b>／${t('c.cap')} <b>${f.capacity}</b> ${rem===0 ? `<span class="badge">${t('full')}</span>` : `<span class="badge rem">${t('c.rem')} ${rem}</span>`}</span>
+        </div>
+        <div class="fac-sub"><span>${esc(wageLine(f))}</span><span class="chev">${open ? '▲' : '▼'}</span></div>
+      </div>
+      <div class="fac-body" ${open ? '' : 'hidden'}>
       ${factoryInfoTable(f)}
       <div class="status-box">
         <div class="status-item"><span>${t('s.cap')}</span>
@@ -1467,6 +1546,10 @@ function renderFactoryAdmin(){
       <div class="card-actions"><button class="btn btn-sub btn-sm" data-act="edit">${t('fac.edit')}</button></div>
       <div class="edit-panel" id="edit-${f.id}">
         <div class="field"><label class="t">${t('fac.name')}</label><input type="text" data-k="name" value="${esc(f.name)}"></div>
+        <div class="row2">
+          <div class="field"><label class="t">${t('fac.wageM')}</label><input type="text" data-k="wageMale" inputmode="numeric" value="${esc(nz(f.wageMale))}" placeholder="1500"></div>
+          <div class="field"><label class="t">${t('fac.wageF')}</label><input type="text" data-k="wageFemale" inputmode="numeric" value="${esc(nz(f.wageFemale))}" placeholder="1400"></div>
+        </div>
         <div class="field"><label class="t">${t('fac.locs')}</label><input type="text" data-k="locations" value="${esc(f.locations.map(cityLabel).join(', '))}"></div>
         <div class="field"><label class="t">${t('fac.shifts')}</label>
           <div class="check-line">
@@ -1492,11 +1575,23 @@ function renderFactoryAdmin(){
           <button class="btn btn-red btn-sm" data-act="delete">${t('fac.delete')}</button>
         </div>
       </div>
+      </div>
     </div>`;
   }).join('');
 
   list.querySelectorAll('.factory-card').forEach(card => {
     const f = factories.find(x => x.id === card.dataset.fid);
+    // 会社名の行をタップ → 詳細を開閉（開いた状態は再描画しても保持）
+    const head = card.querySelector('[data-toggle]');
+    const toggle = () => {
+      const body = card.querySelector('.fac-body'), willOpen = body.hidden;
+      body.hidden = !willOpen;
+      if (willOpen) openFactories.add(f.id); else openFactories.delete(f.id);
+      head.setAttribute('aria-expanded', String(willOpen));
+      card.querySelector('.chev').textContent = willOpen ? '▲' : '▼';
+    };
+    head.addEventListener('click', toggle);
+    head.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); } });
     card.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', () => {
       const act = btn.dataset.act;
       if (act === 'cap+') f.capacity++;
@@ -1511,16 +1606,70 @@ function renderFactoryAdmin(){
       else if (act === 'save'){ saveEdit(f, card); }
       else if (act === 'delete'){
         if (!confirm(t('fac.confdel',{n:f.name}))) return;
-        factories = factories.filter(x => x.id !== f.id);
+        factories = factories.filter(x => x.id !== f.id); openFactories.delete(f.id);
       }
       saveFactories(); initSelects(); renderFactoryAdmin();
     }));
   });
 }
+
+/* ---------- 報告書（在籍人数・枠数の一覧表 → PDF） ---------- */
+function reportHTML(){
+  const loc = lang === 'pt' ? 'pt-BR' : lang === 'en' ? 'en-US' : 'ja-JP';
+  const T = { cap:0, cur:0, rem:0, mR:0, mC:0, fR:0, fC:0 };
+  const wcell = v => String(nz(v)).trim() ? esc(fmtWage(v)) : '—';
+  const rows = factories.map((f, i) => {
+    const rem = remainingOf(f);
+    T.cap += f.capacity; T.cur += f.current; T.rem += rem;
+    T.mR += maleRem(f); T.mC += (f.maleCap || 0); T.fR += femRem(f); T.fC += (f.femCap || 0);
+    return `<tr><td>${i+1}</td><td class="l">${esc(f.name)}</td><td class="l">${esc(f.locations.map(cityLabel).join(' / '))}</td>
+      <td>${esc(t('st.' + (f.status || 'open')))}</td><td>${f.capacity}</td><td>${f.current}</td><td>${rem === 0 ? esc(t('full')) : rem}</td>
+      <td>${f.maleCap > 0 ? maleRem(f) + '／' + f.maleCap : '—'}</td><td>${f.femCap > 0 ? femRem(f) + '／' + f.femCap : '—'}</td>
+      <td>${wcell(f.wageMale)}</td><td>${wcell(f.wageFemale)}</td></tr>`;
+  }).join('');
+  return `<div class="report">
+    <div class="rp-title">${esc(t('rp.title'))}</div>
+    <div class="rp-meta">${esc(t('rp.date'))}：${esc(new Date().toLocaleString(loc))}　／　${esc(t('rp.count',{n:factories.length}))}</div>
+    <div class="rp-scroll"><table class="rp-table">
+      <thead><tr><th>${t('rp.no')}</th><th>${t('rp.name')}</th><th>${t('rp.loc')}</th><th>${t('rp.status')}</th><th>${t('rp.cap')}</th><th>${t('rp.cur')}</th><th>${t('rp.rem')}</th><th>${t('rp.male')}</th><th>${t('rp.female')}</th><th>${t('rp.wm')}</th><th>${t('rp.wf')}</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td colspan="4">${esc(t('rp.total'))}</td><td>${T.cap}</td><td>${T.cur}</td><td>${T.rem}</td><td>${T.mC ? T.mR + '／' + T.mC : '—'}</td><td>${T.fC ? T.fR + '／' + T.fC : '—'}</td><td>—</td><td>—</td></tr></tfoot>
+    </table></div></div>`;
+}
+function showReport(){
+  $('report-preview').innerHTML = `<div class="box">${reportHTML()}
+    <div class="btn-row">
+      <button type="button" class="btn btn-main" id="btn-report-pdf">${t('rp.pdf')}</button>
+      <button type="button" class="btn btn-sub" id="btn-report-close">${t('rp.close')}</button>
+    </div>
+    <p class="small">${esc(t('rp.hint'))}</p></div>`;
+  $('report-preview').dataset.shown = '1';
+  $('btn-report-pdf').addEventListener('click', printReport);
+  $('btn-report-close').addEventListener('click', () => { $('report-preview').innerHTML = ''; delete $('report-preview').dataset.shown; });
+  $('report-preview').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function printReport(){
+  $('report-print').innerHTML = reportHTML();                  // 印刷用は常に最新の数字で作り直す
+  document.documentElement.classList.add('print-report');
+  const st = document.createElement('style'); st.id = 'report-page-style';
+  st.textContent = '@page { size: A4 landscape; margin: 10mm; }';
+  document.head.appendChild(st);
+  document.title = t('rp.title') + '_' + new Date().toISOString().slice(0, 10);
+  printBusy = true;                                            // 応募者フォームの自動保存は動かさない
+  window.print();
+  setTimeout(() => { printBusy = false; endReportPrint(); }, 1500);
+}
+function endReportPrint(){
+  document.documentElement.classList.remove('print-report');
+  const st = $('report-page-style'); if (st && st.parentNode) st.parentNode.removeChild(st);
+  document.title = t('app.title').replace(/^📋\s*/, '');
+}
+$('btn-report').addEventListener('click', showReport);
 function saveEdit(f, card){
   const g = k => card.querySelector(`[data-k=${k}]`);
   const num = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
   f.name = g('name').value.trim() || f.name;
+  f.wageMale = g('wageMale').value.trim(); f.wageFemale = g('wageFemale').value.trim();
   f.locations = g('locations').value.split(/[,、，・]+/).map(normCity).filter(Boolean);
   f.shifts = [g('day').checked && '昼勤', g('night').checked && '夜勤'].filter(Boolean);
   if (!f.shifts.length) f.shifts = ['昼勤'];
@@ -1533,7 +1682,8 @@ function saveEdit(f, card){
   if (unknown.length) alert(t('fac.unknown',{x: unknown.join(', ')}));
 }
 $('btn-add-factory').addEventListener('click', () => {
-  factories.push({ id:'f'+Date.now(), name:t('fac.newname'), locations:['稲沢市'], shifts:['昼勤'], housing:'記載なし', gender:'不問', ageMin:null, ageMax:null, wants:[], boost:0, status:'open', maleCap:0, maleCur:0, femCap:0, femCur:0, capacity:5, current:0 });
+  factories.push({ id:'f'+Date.now(), name:t('fac.newname'), locations:['稲沢市'], shifts:['昼勤'], housing:'記載なし', gender:'不問', ageMin:null, ageMax:null, wants:[], boost:0, status:'open', wageMale:'', wageFemale:'', maleCap:0, maleCur:0, femCap:0, femCur:0, capacity:5, current:0 });
+  openFactories.add(factories[factories.length - 1].id);
   saveFactories(); initSelects(); renderFactoryAdmin();
   const cards = document.querySelectorAll('#factory-admin .factory-card');
   const last = cards[cards.length-1]; last.querySelector('.edit-panel').classList.add('open'); last.scrollIntoView({behavior:'smooth'});
@@ -1783,10 +1933,10 @@ const HSYN = {
   shift:['希望勤務体制'], wish:['希望勤務地'], assigned:['決定先'], top:['おすすめ上位']
 };
 const HSYN_N = {}; Object.keys(HSYN).forEach(f => { HSYN_N[f] = HSYN[f].map(hnorm); });
-const FORM_ORDER = ['name','age','gender','phone','apps','city','nihongo','cert','certOther','job','car','apto','filhos','idate','itime','wage','vaga','interviewer','obs'];
+const FORM_ORDER = ['name','age','gender','phone','apps','city','nihongo','cert','job','car','apto','filhos','idate','itime','wage','vaga','interviewer','obs'];   // 既存の doPost の列順（資格の列に「Outros: …」が含まれる）
 
 function mapHeaders(headers){
-  const map = {};
+  const map = {}; let exact = 0;
   headers.forEach((h, i) => {
     const n = hnorm(h); if (!n) return;
     let best = null, score = 0;
@@ -1794,8 +1944,9 @@ function mapHeaders(headers){
       if (n === sy){ if (sy.length + 100 > score){ best = f; score = sy.length + 100; } }
       else if (sy.length >= 3 && n.indexOf(sy) >= 0 && sy.length > score){ best = f; score = sy.length; }
     }));
-    if (best && map[best] === undefined) map[best] = i;
+    if (best && map[best] === undefined){ map[best] = i; if (score >= 100) exact++; }
   });
+  map._exact = exact;
   return map;
 }
 const yesno = v => {
@@ -1807,8 +1958,12 @@ const yesno = v => {
 const histJob = v => /seguro|失業|desemprego|unemploy/.test(hnorm(v)) ? 'Seguro' : yesno(v);
 const histGender = v => { const n = hnorm(v); if (/^(f|fem|女|female)/.test(n)) return '女性'; if (/^(m|masc|男|male)/.test(n)) return '男性'; return ''; };
 function histCert(v){
-  const out = { cert:[], reach:false };
+  const out = { cert:[], reach:false, other:'' };
+  let inOther = false;
   String(nz(v)).split(/[,、・;；\/／]+/).forEach(tok => {
+    const m = /^\s*(?:outros|その他|other)\s*[:：]\s*(.*)$/i.exec(tok);
+    if (m){ inOther = true; if (out.cert.indexOf('Outros') < 0) out.cert.push('Outros'); out.other = m[1].trim(); return; }
+    if (inOther){ if (tok.trim()) out.other += (out.other ? ', ' : '') + tok.trim(); return; }   // 「Outros: A, B」の続き
     const n = hnorm(tok); if (!n) return;
     if (/reach|リーチ/.test(n)){ out.reach = true; if (out.cert.indexOf('Empilhadeira') < 0) out.cert.push('Empilhadeira'); return; }
     let key = '';
@@ -1822,7 +1977,7 @@ function histCert(v){
 }
 function fromHistory(headers, rows, tabName){
   let map = mapHeaders(headers || []), data = rows || [], pos = false;
-  if (Object.keys(map).length < 3){          // 見出しが読み取れない → フォームの項目順として読む
+  if (map._exact < 3){          // 見出しが読み取れない → 既存フォームの項目順として読む
     pos = true; data = [headers || []].concat(rows || []);
     const first = String((data[0] || [])[0] || '');
     const off = /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})|(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})|\d{1,2}:\d{2}/.test(first) ? 1 : 0;
@@ -1843,7 +1998,7 @@ function fromHistory(headers, rows, tabName){
       age:parseInt(get('age'), 10) || null, gender:histGender(get('gender')), phone,
       apps:S('apps').split(/[,、・;；\/／]+/).map(x => x.trim()).filter(Boolean),
       cityText:S('city'), residence:'', nihongo:S('nihongo').replace(/[^\d.]/g, ''),
-      cert:c.cert, certOther:S('certOther'), reach:c.reach || /あり|sim/.test(hnorm(get('reach'))),
+      cert:c.cert, certOther:S('certOther') || c.other, reach:c.reach || /あり|sim/.test(hnorm(get('reach'))),
       job:histJob(get('job')), car:yesno(get('car')), apto:yesno(get('apto')), filhos:S('filhos'),
       interviewDate:S('idate'), interviewTime:S('itime'), wage:S('wage'), vaga:S('vaga'), interviewer:S('interviewer'),
       shift:S('shift') || 'どちらでも', wishLocation:S('wish') || 'どこでも', obs:S('obs'), assigned:S('assigned'), top:S('top')
@@ -2101,6 +2256,7 @@ function setLang(l){
     if (a.age && a.gender) renderMatch(a);
   }
   if ($('search-results').dataset.shown) runSearch(true);
+  if ($('report-preview').dataset.shown) showReport();
 }
 $('lang-select').addEventListener('change', e => setLang(e.target.value));
 
